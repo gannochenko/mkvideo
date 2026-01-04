@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.env
+
+# Project specific
+config/youtube_credentials.json
+config/token.json
+input/*
+!input/.gitkeep
+output/*
+!output/.gitkeep
+
+.DS_Store
+*.mp4
