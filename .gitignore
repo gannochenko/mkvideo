@@ -17,3 +17,5 @@ output/*
 
 .DS_Store
 *.mp4
+images/*
+!images/.gitkeep
