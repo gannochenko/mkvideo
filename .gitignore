@@ -19,3 +19,6 @@ output/*
 *.mp4
 images/*
 !images/.gitkeep
+
+audio/*
+!audio/.gitkeep
