@@ -102,7 +102,9 @@ glue_glitch_youtube_bg_intro:
 	@DURATION=$$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 ./input/20251224_110901.mp4); \
 	GLITCH_DUR=$$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 ./effects/digital_glitch_01.mp4); \
 	OFFSET=$$(echo "$$DURATION - $$GLITCH_DUR / 2 + 5" | bc); \
-	echo "Video duration: $$DURATION seconds, glitch duration: $$GLITCH_DUR seconds, overlay offset: $$OFFSET seconds"; \
+	TOTAL_DUR=$$(echo "$$DURATION * 2 + 5" | bc); \
+	FADE_START=$$(echo "$$TOTAL_DUR - 1" | bc); \
+	echo "Video duration: $$DURATION seconds, glitch duration: $$GLITCH_DUR seconds, overlay offset: $$OFFSET seconds, fade start: $$FADE_START seconds"; \
 	ffmpeg -y -loop 1 -t 5 -i ./images/20251224_110757.jpg -i ./input/20251224_110901.mp4 -i ./input/20251224_110901.mp4 -i ./effects/digital_glitch_01.mp4 -i ./audio/instrumental-acoustic-guitar-music-401434.mp3 -filter_complex \
 	  "[0:v]fps=30,format=yuv420p,scale=-1:1920[intro_scaled]; \
 	   [intro_scaled]split[intro_fg][intro_bg]; \
@@ -116,9 +118,9 @@ glue_glitch_youtube_bg_intro:
 	   [background][foreground]overlay=(W-w)/2:0[vmain]; \
 	   [intro][vmain]concat=n=2:v=1:a=0[vcomposed]; \
 	   [3:v]scale=-1:1080,colorkey=0x000000:0.3:0.2,setpts=PTS+$$OFFSET/TB[glitch]; \
-	   [vcomposed][glitch]overlay=(W-w)/2:0:enable='between(t,$$OFFSET,$$OFFSET+$$GLITCH_DUR)'[v]; \
+	   [vcomposed][glitch]overlay=(W-w)/2:0:enable='between(t,$$OFFSET,$$OFFSET+$$GLITCH_DUR)',fade=t=out:st=$$FADE_START:d=1[v]; \
 	   [4:a]atrim=0:5,afade=t=out:st=4:d=1[music]; \
 	   [1:a][2:a]concat=n=2:v=0:a=1[amain]; \
-	   [music][amain]concat=n=2:v=0:a=1[a]" \
+	   [music][amain]concat=n=2:v=0:a=1,afade=t=out:st=$$FADE_START:d=1[a]" \
 	  -map "[v]" -map "[a]" -c:v libx264 -crf 20 -preset fast test_output.mp4
 
