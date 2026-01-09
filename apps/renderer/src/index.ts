@@ -1,5 +1,9 @@
-import { parseHTMLFile, findElementsByTagName, getComputedStyles } from './parser.js';
-import { resolve } from 'path';
+import { findElementsByTagName, parseHTMLFile } from './parser.js';
+import { FFmpegGenerator } from './ffmpeg-generator.js';
+import { resolve, dirname } from 'path';
+import { writeFile } from 'fs/promises';
+import { generate } from 'css-tree';
+import { generateFilterComplex } from './generator.js';
 
 console.log('Renderer application starting...');
 
@@ -7,55 +11,45 @@ async function main() {
   console.log('Renderer ready');
 
   // Parse the demo project HTML file
-  const projectPath = resolve(
-    __dirname,
-    '../../../examples/demo/project.html'
-  );
+  const projectPath = resolve(__dirname, '../../../examples/demo/project.html');
 
   console.log(`\nParsing project file: ${projectPath}`);
-  const parsed = await parseHTMLFile(projectPath);
+  const project = await parseHTMLFile(projectPath);
 
-  console.log('\n=== Project Structure ===');
+  await generateFilterComplex(project);
 
-  // Find all sequences
-  const sequences = findElementsByTagName(parsed.ast, 'sequence');
-  console.log(`\nFound ${sequences.length} sequence(s):`);
+  //   // Generate FFmpeg command
+  //   console.log('\n=== Generating FFmpeg Command ===\n');
+  //   const projectDir = dirname(projectPath);
+  //   const generator = new FFmpegGenerator(parsed);
 
-  sequences.forEach((seq, idx) => {
-    console.log(`\n  Sequence ${idx + 1}:`);
-    const fragments = findElementsByTagName(seq, 'fragment');
-    console.log(`    Fragments: ${fragments.length}`);
+  //   // Print summary
+  //   console.log(generator.generateSummary());
 
-    fragments.forEach((frag, fragIdx) => {
-      const styles = getComputedStyles(frag, parsed.elements);
-      const classAttr = frag.attrs.find((a) => a.name === 'class');
-      console.log(
-        `      ${fragIdx + 1}. ${classAttr?.value || '(no class)'}`
-      );
-      console.log(`         Styles:`, styles);
-    });
-  });
+  //   // Print FFmpeg command
+  //   console.log('\n=== Generated FFmpeg Command ===\n');
+  //   const command = generator.generate();
+  //   console.log(command);
 
-  // Find all assets
-  const assets = findElementsByTagName(parsed.ast, 'asset');
-  console.log(`\n=== Assets (${assets.length}) ===`);
-  assets.forEach((asset) => {
-    const name = asset.attrs.find((a) => a.name === 'name')?.value;
-    const path = asset.attrs.find((a) => a.name === 'path')?.value;
-    console.log(`  - ${name}: ${path}`);
-  });
+  //   // Save to executable script
+  //   const scriptPath = resolve(projectDir, 'render.sh');
+  //   const scriptContent = `#!/bin/bash
+  // set -e
 
-  // Find all outputs
-  const outputs = findElementsByTagName(parsed.ast, 'output');
-  console.log(`\n=== Outputs (${outputs.length}) ===`);
-  outputs.forEach((output) => {
-    const name = output.attrs.find((a) => a.name === 'name')?.value;
-    const resolution = output.attrs.find((a) => a.name === 'resolution')?.value;
-    const fps = output.attrs.find((a) => a.name === 'fps')?.value;
-    console.log(`  - ${name}: ${resolution} @ ${fps}fps`);
-  });
+  // cd "$(dirname "$0")"
 
-  console.log('\n✓ Parsing complete!');
+  // echo "Rendering video project..."
+  // echo ""
+
+  // ${command}
+
+  // echo ""
+  // echo "✓ Render complete! Output: ./output/for_youtube.mp4"
+  // `;
+
+  //   await writeFile(scriptPath, scriptContent, { mode: 0o755 });
+  //   console.log(`\n✓ Saved executable script to: ${scriptPath}`);
+  //   console.log(`  Run with: cd ${projectDir} && ./render.sh`);
 }
 
 main().catch((error) => {

@@ -1,24 +1,15 @@
 import { parse, type DefaultTreeAdapterMap } from 'parse5';
 import { readFile } from 'fs/promises';
 import * as csstree from 'css-tree';
+import { CSSProperties, ParsedProject } from './type';
 
 export type ASTNode = DefaultTreeAdapterMap['node'];
 export type Document = DefaultTreeAdapterMap['document'];
 export type Element = DefaultTreeAdapterMap['element'];
-export type Attribute = DefaultTreeAdapterMap['attribute'];
-
-export interface CSSProperties {
-  [key: string]: string;
-}
+// export type Attribute = DefaultTreeAdapterMap['attribute'];
 
 export interface EnhancedElement extends Element {
   computedStyles?: CSSProperties;
-}
-
-export interface ParsedProject {
-  ast: Document;
-  elements: Map<Element, CSSProperties>;
-  cssRules: csstree.CssNode;
 }
 
 /**
@@ -48,7 +39,7 @@ export function parseHTML(html: string): ParsedProject {
   // Apply styles to all elements
   traverseAndApplyStyles(ast, styleRules, elements);
 
-  return { ast, elements, cssRules };
+  return { ast, css: elements };
 }
 
 /**
@@ -135,7 +126,7 @@ function matchesSelector(element: Element, selector: string): boolean {
 function traverseAndApplyStyles(
   node: ASTNode,
   styleRules: StyleRule[],
-  elementsMap: Map<Element, CSSProperties>
+  elementsMap: Map<Element, CSSProperties>,
 ) {
   function traverse(currentNode: ASTNode) {
     if ('tagName' in currentNode) {
@@ -170,7 +161,7 @@ function traverseAndApplyStyles(
  */
 export function findElementsByTagName(
   node: ASTNode,
-  tagName: string
+  tagName: string,
 ): Element[] {
   const results: Element[] = [];
 
@@ -222,7 +213,7 @@ export function getTextContent(node: ASTNode): string {
  */
 export function getComputedStyles(
   element: Element,
-  elementsMap: Map<Element, CSSProperties>
+  elementsMap: Map<Element, CSSProperties>,
 ): CSSProperties {
   return elementsMap.get(element) || {};
 }
