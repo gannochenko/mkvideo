@@ -8,7 +8,7 @@ export type CSSProperties = {
   [key: string]: string;
 };
 
-export type ParsedProject = {
+export type ParsedHtml = {
   ast: Document;
   css: Map<Element, CSSProperties>;
   // cssRules: csstree.CssNode;
@@ -18,19 +18,23 @@ export type Asset = {
   name: string; // e.g. "clip1"
   path: string; // e.g. "./assets/clip1.mp4"
   author?: string; // e.g. "John Doe"
+  type: 'video' | 'image' | 'audio';
+  duration: number; // in ms
 };
 
 export type Fragment = {
   assetName: string;
-  assetType: 'video' | 'image' | 'audio';
   duration: number; // calculated, in ms (can come from CSS or from the asset's duration)
   overlayLeft: number; // amount of ms to overlay the fragment on the left
   overlayRight: number; // amount of ms to overlay the fragment on the right
   blendModeLeft: string; // how to blend the left fragment with the current fragment
   blendModeRight: string; // how to blend the right fragment with the current fragment
   transitionIn: string; // how to transition into the fragment
+  transitionInDuration: number; // how long the transition in lasts
   transitionOut: string; // how to transition out of the fragment
+  transitionOutDuration: number; // how long the transition out lasts
   zIndex: number; // order of layering
+  objectFit: 'cover' | 'contain';
 };
 
 export type Sequence = {

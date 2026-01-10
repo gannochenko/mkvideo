@@ -1,7 +1,7 @@
 import { findElementsByTagName } from './parser';
-import { ParsedProject } from './type';
+import { ParsedHtml } from './type';
 
-export async function generateFilterComplex({ ast, css }: ParsedProject) {
+export async function generateFilterComplex({ ast, css }: ParsedHtml) {
   const project = findElementsByTagName(ast, 'project');
   const sequences = findElementsByTagName(project[0], 'sequence');
 

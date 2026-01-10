@@ -4,6 +4,7 @@ import { resolve, dirname } from 'path';
 import { writeFile } from 'fs/promises';
 import { generate } from 'css-tree';
 import { generateFilterComplex } from './generator.js';
+import { prepareProject } from './project.js';
 
 console.log('Renderer application starting...');
 
@@ -13,10 +14,12 @@ async function main() {
   // Parse the demo project HTML file
   const projectPath = resolve(__dirname, '../../../examples/demo/project.html');
 
-  console.log(`\nParsing project file: ${projectPath}`);
-  const project = await parseHTMLFile(projectPath);
+  const fileContent = await parseHTMLFile(projectPath);
+  const project = await prepareProject(fileContent, projectPath);
 
-  await generateFilterComplex(project);
+  console.log(project);
+
+  // await generateFilterComplex(fileContent);
 
   //   // Generate FFmpeg command
   //   console.log('\n=== Generating FFmpeg Command ===\n');

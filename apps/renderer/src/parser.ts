@@ -1,7 +1,7 @@
 import { parse, type DefaultTreeAdapterMap } from 'parse5';
 import { readFile } from 'fs/promises';
 import * as csstree from 'css-tree';
-import { CSSProperties, ParsedProject } from './type';
+import { CSSProperties, ParsedHtml } from './type';
 
 export type ASTNode = DefaultTreeAdapterMap['node'];
 export type Document = DefaultTreeAdapterMap['document'];
@@ -17,7 +17,7 @@ export interface EnhancedElement extends Element {
  * @param filePath - Absolute or relative path to the HTML file
  * @returns Promise resolving to the parsed project with AST and computed styles
  */
-export async function parseHTMLFile(filePath: string): Promise<ParsedProject> {
+export async function parseHTMLFile(filePath: string): Promise<ParsedHtml> {
   const content = await readFile(filePath, 'utf-8');
   return parseHTML(content);
 }
@@ -27,7 +27,7 @@ export async function parseHTMLFile(filePath: string): Promise<ParsedProject> {
  * @param html - HTML string to parse
  * @returns The parsed project with AST and computed styles
  */
-export function parseHTML(html: string): ParsedProject {
+export function parseHTML(html: string): ParsedHtml {
   const ast = parse(html);
   const cssText = extractCSS(ast);
   const cssRules = csstree.parse(cssText);
