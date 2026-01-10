@@ -21,7 +21,7 @@ export async function prepareProject(
   const projectDir = dirname(projectPath);
   const assets = await processAssets(html, projectDir);
   const output = processOutput(html, projectDir);
-  const sequences = processSequences(html);
+  const sequences = processSequences(html, assets);
 
   return {
     sequences,
@@ -273,7 +273,10 @@ function findOutputElements(html: ParsedHtml): Element[] {
 /**
  * Processes sequences and fragments from the parsed HTML
  */
-function processSequences(html: ParsedHtml): Sequence[] {
+function processSequences(
+  html: ParsedHtml,
+  assets: Map<string, Asset>,
+): Sequence[] {
   const sequenceElements = findSequenceElements(html);
   const sequences: Sequence[] = [];
 
@@ -282,7 +285,7 @@ function processSequences(html: ParsedHtml): Sequence[] {
     const fragments: Fragment[] = [];
 
     for (const fragmentElement of fragmentElements) {
-      const fragment = processFragment(fragmentElement, html);
+      const fragment = processFragment(fragmentElement, html, assets);
       if (fragment) {
         fragments.push(fragment);
       }
@@ -381,7 +384,11 @@ function findFragmentChildren(sequenceElement: Element): Element[] {
 /**
  * Processes a single fragment element
  */
-function processFragment(element: Element, html: ParsedHtml): Fragment | null {
+function processFragment(
+  element: Element,
+  html: ParsedHtml,
+  assets: Map<string, Asset>,
+): Fragment | null {
   const attrs = new Map(element.attrs.map((attr) => [attr.name, attr.value]));
   const styles = html.css.get(element) || {};
 
@@ -393,19 +400,175 @@ function processFragment(element: Element, html: ParsedHtml): Fragment | null {
   const zIndexStr = styles['z-index'];
   const zIndex = zIndexStr ? parseInt(zIndexStr, 10) : 0;
 
-  // TODO: Populate other fields
+  // Extract duration from CSS width property
+  const duration = parseDuration(styles['width'], assetName, assets);
+
+  // Extract overlayLeft from CSS margin-left property (in ms, can be negative)
+  const overlayLeft = parseTimeValue(styles['margin-left']);
+
+  // Extract overlayRight from CSS margin-right property (in ms, can be negative)
+  const overlayRight = parseTimeValue(styles['margin-right']);
+
+  // Extract blend modes from CSS -blend-mode-left and -blend-mode-right
+  const blendModeLeft = parseBlendMode(styles['-blend-mode-left']);
+  const blendModeRight = parseBlendMode(styles['-blend-mode-right']);
+
+  // Extract transitions from CSS -transition-in and -transition-out
+  const transitionIn = parseTransition(styles['-transition-in']);
+  const transitionOut = parseTransition(styles['-transition-out']);
+
+  // Extract objectFit from CSS object-fit property (default: "cover")
+  const objectFit = parseObjectFit(styles['object-fit']);
+
   return {
     assetName,
-    duration: 0,
-    overlayLeft: 0,
-    overlayRight: 0,
-    blendModeLeft: '',
-    blendModeRight: '',
-    transitionIn: '',
-    transitionInDuration: 0,
-    transitionOut: '',
-    transitionOutDuration: 0,
+    duration,
+    overlayLeft,
+    overlayRight,
+    blendModeLeft,
+    blendModeRight,
+    transitionIn: transitionIn.name,
+    transitionInDuration: transitionIn.duration,
+    transitionOut: transitionOut.name,
+    transitionOutDuration: transitionOut.duration,
     zIndex,
-    objectFit: 'cover',
+    objectFit,
   };
+}
+
+/**
+ * Parses duration from CSS width value
+ * @param width - CSS width value (e.g., "5s", "100%", "50%", undefined)
+ * @param assetName - Name of the asset this fragment uses
+ * @param assets - Map of all assets
+ * @returns Duration in milliseconds
+ */
+function parseDuration(
+  width: string | undefined,
+  assetName: string,
+  assets: Map<string, Asset>,
+): number {
+  if (!width) {
+    return 0;
+  }
+
+  // Handle percentage (e.g., 100%, 50%, 70%)
+  if (width.endsWith('%')) {
+    let percentage = parseFloat(width);
+    if (isNaN(percentage)) {
+      return 0;
+    }
+
+    // Cap percentages above 100% at 100%
+    if (percentage > 100) {
+      percentage = 100;
+    }
+
+    const asset = assets.get(assetName);
+    if (!asset) {
+      // No asset, return 0
+      return 0;
+    }
+
+    // Images don't have duration, so any percentage is 0
+    if (asset.type === 'image') {
+      return 0;
+    }
+
+    // Calculate percentage of asset duration
+    return Math.round((asset.duration * percentage) / 100);
+  }
+
+  // Handle seconds (e.g., "5s")
+  return parseTimeValue(width);
+}
+
+/**
+ * Parses a time value from CSS (e.g., "0.5s", "-0.5s")
+ * @param value - CSS time value in seconds
+ * @returns Time in milliseconds (can be negative)
+ */
+function parseTimeValue(value: string | undefined): number {
+  if (!value) {
+    return 0;
+  }
+
+  // Handle seconds (e.g., "0.5s", "-0.5s")
+  if (value.endsWith('s')) {
+    const seconds = parseFloat(value);
+    if (!isNaN(seconds)) {
+      return Math.round(seconds * 1000);
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * Parses a blend mode value from CSS
+ * @param value - CSS blend mode value
+ * @returns Blend mode string (empty string or "screen")
+ */
+function parseBlendMode(value: string | undefined): string {
+  if (!value) {
+    return '';
+  }
+
+  const trimmed = value.trim();
+
+  // Only allow "screen" as valid blend mode
+  if (trimmed === 'screen') {
+    return 'screen';
+  }
+
+  // Default to empty string
+  return '';
+}
+
+/**
+ * Parses a transition value from CSS (format: "[transition_name] [transition_duration]")
+ * @param value - CSS transition value (e.g., "fade-to-black 1s", "fade-out 0.5s")
+ * @returns Object with transition name and duration in milliseconds
+ */
+function parseTransition(
+  value: string | undefined,
+): { name: string; duration: number } {
+  if (!value) {
+    return { name: '', duration: 0 };
+  }
+
+  const trimmed = value.trim();
+  const parts = trimmed.split(/\s+/);
+
+  if (parts.length === 0) {
+    return { name: '', duration: 0 };
+  }
+
+  // First part is the transition name
+  const name = parts[0];
+
+  // Second part is the duration (if present)
+  const duration = parts.length > 1 ? parseTimeValue(parts[1]) : 0;
+
+  return { name, duration };
+}
+
+/**
+ * Parses objectFit value from CSS
+ * @param value - CSS object-fit value
+ * @returns "cover" or "contain" (defaults to "cover")
+ */
+function parseObjectFit(value: string | undefined): 'cover' | 'contain' {
+  if (!value) {
+    return 'cover';
+  }
+
+  const trimmed = value.trim();
+
+  if (trimmed === 'contain') {
+    return 'contain';
+  }
+
+  // Default to cover for any other value
+  return 'cover';
 }

@@ -13,7 +13,11 @@
     <fragment class="footage" />
     <fragment class="glitchy_transition" />
     <fragment class="footage" data-asset="clip_02" />
-    <fragment class="outro" />
+    <fragment class="outro">
+      <container class="outro_text">
+        <div>Thank you for watching!</div>
+      </container>
+    </fragment>
   </sequence>
   <sequence>
     <fragment class="intro_sound intro_duration" />
@@ -47,12 +51,20 @@
     justify-content: center;
     align-items: center;
   }
+  .outro_text {
+    width: 100vh;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
   .glitchy_transition {
-    width: 5s;
+    width: 1s;
     margin-left: -0.5s;
     margin-right: 0.5s;
     -asset: glitch;
-    -blend-mode: screen;
+    -blend-mode-left: screen;
+    -blend-mode-right: screen;
     z-index: 1;
   }
   .footage {

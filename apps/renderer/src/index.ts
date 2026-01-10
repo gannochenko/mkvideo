@@ -20,6 +20,16 @@ async function main() {
   console.log('Sequences:', project.sequences.length);
   project.sequences.forEach((seq, i) => {
     console.log(`  Sequence ${i}: ${seq.fragments.length} fragments`);
+    seq.fragments.forEach((frag, j) => {
+      const blendInfo = frag.blendModeLeft || frag.blendModeRight
+        ? `, blendLeft="${frag.blendModeLeft}", blendRight="${frag.blendModeRight}"`
+        : '';
+      const transitionInfo = frag.transitionIn || frag.transitionOut
+        ? `, transIn="${frag.transitionIn}"(${frag.transitionInDuration}ms), transOut="${frag.transitionOut}"(${frag.transitionOutDuration}ms)`
+        : '';
+      const objectFitInfo = frag.objectFit !== 'cover' ? `, objectFit="${frag.objectFit}"` : '';
+      console.log(`    Fragment ${j}: assetName="${frag.assetName}", duration=${frag.duration}ms, overlayL=${frag.overlayLeft}ms, overlayR=${frag.overlayRight}ms, zIndex=${frag.zIndex}${blendInfo}${transitionInfo}${objectFitInfo}`);
+    });
   });
 
   // await generateFilterComplex(fileContent);
