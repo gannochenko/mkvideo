@@ -1,4 +1,11 @@
-import { ParsedHtml, ProjectStructure, Asset, Element, ASTNode } from './type';
+import {
+  ParsedHtml,
+  ProjectStructure,
+  Asset,
+  Output,
+  Element,
+  ASTNode,
+} from './type';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { resolve, dirname } from 'path';
@@ -11,16 +18,12 @@ export async function prepareProject(
 ): Promise<ProjectStructure> {
   const projectDir = dirname(projectPath);
   const assets = await processAssets(html, projectDir);
+  const output = processOutput(html, projectDir);
 
   return {
     sequences: [],
     assets,
-    output: {
-      name: 'output',
-      path: resolve(projectDir, './output/video.mp4'),
-      resolution: { width: 1920, height: 1080 },
-      fps: 30,
-    },
+    output,
   };
 }
 
@@ -188,4 +191,78 @@ async function getAssetDuration(
     console.error(`Failed to get duration for asset: ${path}`, error);
     return 0;
   }
+}
+
+/**
+ * Processes output configuration from the parsed HTML
+ */
+function processOutput(html: ParsedHtml, projectDir: string): Output {
+  const outputElements = findOutputElements(html);
+
+  // Use first output element, or return defaults if none found
+  if (outputElements.length === 0) {
+    console.warn('No output elements found, using defaults');
+    return {
+      name: 'output',
+      path: resolve(projectDir, './output/video.mp4'),
+      resolution: { width: 1920, height: 1080 },
+      fps: 30,
+    };
+  }
+
+  const element = outputElements[0];
+  const attrs = new Map(element.attrs.map((attr) => [attr.name, attr.value]));
+
+  // Extract name
+  const name = attrs.get('name') || 'output';
+
+  // Extract and resolve path
+  const relativePath = attrs.get('path') || './output/video.mp4';
+  const path = resolve(projectDir, relativePath);
+
+  // Extract and parse resolution (format: "1920x1080")
+  const resolutionStr = attrs.get('resolution') || '1920x1080';
+  const [widthStr, heightStr] = resolutionStr.split('x');
+  const resolution = {
+    width: parseInt(widthStr, 10) || 1920,
+    height: parseInt(heightStr, 10) || 1080,
+  };
+
+  // Extract fps
+  const fpsStr = attrs.get('fps');
+  const fps = fpsStr ? parseInt(fpsStr, 10) : 30;
+
+  return {
+    name,
+    path,
+    resolution,
+    fps,
+  };
+}
+
+/**
+ * Finds all output elements in the HTML
+ */
+function findOutputElements(html: ParsedHtml): Element[] {
+  const results: Element[] = [];
+
+  function traverse(node: ASTNode) {
+    if ('tagName' in node) {
+      const element = node as Element;
+
+      // Check if element is an <output> tag
+      if (element.tagName === 'output') {
+        results.push(element);
+      }
+    }
+
+    if ('childNodes' in node && node.childNodes) {
+      for (const child of node.childNodes) {
+        traverse(child);
+      }
+    }
+  }
+
+  traverse(html.ast);
+  return results;
 }
