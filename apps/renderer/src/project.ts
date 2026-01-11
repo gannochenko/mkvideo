@@ -282,14 +282,31 @@ function processSequences(
 
   for (const sequenceElement of sequenceElements) {
     const fragmentElements = findFragmentChildren(sequenceElement);
-    const fragments: Fragment[] = [];
+    const rawFragments: Array<Fragment & { overlayRight: number }> = [];
 
     for (const fragmentElement of fragmentElements) {
       const fragment = processFragment(fragmentElement, html, assets);
       if (fragment) {
-        fragments.push(fragment);
+        rawFragments.push(fragment);
       }
     }
+
+    // Normalize overlays: combine prev's overlayRight with current's overlayLeft
+    const fragments: Fragment[] = rawFragments.map((frag, idx) => {
+      if (idx === 0) {
+        // First fragment: keep overlayLeft as-is, remove overlayRight
+        const { overlayRight, ...rest } = frag;
+        return rest;
+      }
+
+      const prevOverlayRight = rawFragments[idx - 1].overlayRight;
+      const { overlayRight, ...rest } = frag;
+
+      return {
+        ...rest,
+        overlayLeft: frag.overlayLeft + prevOverlayRight,
+      };
+    });
 
     sequences.push({ fragments });
   }
@@ -383,12 +400,13 @@ function findFragmentChildren(sequenceElement: Element): Element[] {
 
 /**
  * Processes a single fragment element
+ * Returns fragment with temporary overlayRight for normalization
  */
 function processFragment(
   element: Element,
   html: ParsedHtml,
   assets: Map<string, Asset>,
-): Fragment | null {
+): (Fragment & { overlayRight: number }) | null {
   const attrs = new Map(element.attrs.map((attr) => [attr.name, attr.value]));
   const styles = html.css.get(element) || {};
 
@@ -407,6 +425,7 @@ function processFragment(
   const overlayLeft = parseTimeValue(styles['margin-left']);
 
   // Extract overlayRight from CSS margin-right property (in ms, can be negative)
+  // This is temporary and will be normalized in processSequences
   const overlayRight = parseTimeValue(styles['margin-right']);
 
   // Extract blend modes from CSS -blend-mode-left and -blend-mode-right

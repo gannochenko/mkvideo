@@ -28,11 +28,14 @@ async function main() {
         ? `, transIn="${frag.transitionIn}"(${frag.transitionInDuration}ms), transOut="${frag.transitionOut}"(${frag.transitionOutDuration}ms)`
         : '';
       const objectFitInfo = frag.objectFit !== 'cover' ? `, objectFit="${frag.objectFit}"` : '';
-      console.log(`    Fragment ${j}: assetName="${frag.assetName}", duration=${frag.duration}ms, overlayL=${frag.overlayLeft}ms, overlayR=${frag.overlayRight}ms, zIndex=${frag.zIndex}${blendInfo}${transitionInfo}${objectFitInfo}`);
+      const overlayInfo = frag.overlayLeft !== 0 ? `, overlay=${frag.overlayLeft}ms` : '';
+      console.log(`    Fragment ${j}: assetName="${frag.assetName}", duration=${frag.duration}ms${overlayInfo}, zIndex=${frag.zIndex}${blendInfo}${transitionInfo}${objectFitInfo}`);
     });
   });
 
-  // await generateFilterComplex(fileContent);
+  console.log('\n=== Filter Complex ===');
+  const filterComplex = generateFilterComplex(project);
+  console.log(filterComplex);
 
   //   // Generate FFmpeg command
   //   console.log('\n=== Generating FFmpeg Command ===\n');
