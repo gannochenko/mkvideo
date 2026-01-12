@@ -207,7 +207,6 @@ describe('prepareProject', () => {
           .test {
             -asset: clip1;
             -blend-mode-left: screen;
-            -blend-mode-right: screen;
           }
         </style>
       `;
@@ -217,7 +216,6 @@ describe('prepareProject', () => {
 
       const fragment = project.sequences[0].fragments[0];
       expect(fragment.blendModeLeft).toBe('screen');
-      expect(fragment.blendModeRight).toBe('screen');
     });
 
     it('should parse transitions', async () => {
@@ -545,6 +543,115 @@ describe('prepareProject', () => {
       // Fragments should not have overlayRight property
       expect(fragments[0]).not.toHaveProperty('overlayRight');
       expect(fragments[1]).not.toHaveProperty('overlayRight');
+    });
+
+    it('should not have blendModeLeft/blendModeRight in final fragments', async () => {
+      const html = `
+        <project>
+          <sequence>
+            <fragment class="a" />
+            <fragment class="b" />
+          </sequence>
+        </project>
+        <style>
+          .a {
+            -asset: clip1;
+            width: 5s;
+            -blend-mode-left: screen;
+            -blend-mode-right: multiply;
+          }
+          .b {
+            -asset: clip2;
+            width: 5s;
+            -blend-mode-left: overlay;
+          }
+        </style>
+      `;
+
+      const parsed = parseHTML(html);
+      const project = await prepareProject(parsed, '/test/project.html');
+
+      const fragments = project.sequences[0].fragments;
+
+      // Fragments should not have blendModeRight property
+      expect(fragments[0]).not.toHaveProperty('blendModeRight');
+      expect(fragments[1]).not.toHaveProperty('blendModeRight');
+    });
+  });
+
+  describe('blend mode normalization', () => {
+    it('should normalize blend modes: current blendModeLeft takes priority', async () => {
+      const html = `
+        <project>
+          <sequence>
+            <fragment class="a" />
+            <fragment class="b" />
+            <fragment class="c" />
+          </sequence>
+        </project>
+        <style>
+          .a {
+            -asset: clip1;
+            width: 5s;
+            -blend-mode-left: screen;
+            -blend-mode-right: multiply;
+          }
+          .b {
+            -asset: clip2;
+            width: 5s;
+            -blend-mode-left: overlay;
+            -blend-mode-right: darken;
+          }
+          .c {
+            -asset: clip3;
+            width: 5s;
+          }
+        </style>
+      `;
+
+      const parsed = parseHTML(html);
+      const project = await prepareProject(parsed, '/test/project.html');
+
+      const fragments = project.sequences[0].fragments;
+
+      // Fragment 0: uses its blendModeLeft
+      expect(fragments[0].blendModeLeft).toBe('screen');
+
+      // Fragment 1: uses its blendModeLeft (takes priority over prev blendModeRight)
+      expect(fragments[1].blendModeLeft).toBe('overlay');
+
+      // Fragment 2: no blendModeLeft, uses prev blendModeRight
+      expect(fragments[2].blendModeLeft).toBe('darken');
+    });
+
+    it('should handle fragments with no blend modes', async () => {
+      const html = `
+        <project>
+          <sequence>
+            <fragment class="a" />
+            <fragment class="b" />
+          </sequence>
+        </project>
+        <style>
+          .a {
+            -asset: clip1;
+            width: 5s;
+          }
+          .b {
+            -asset: clip2;
+            width: 5s;
+          }
+        </style>
+      `;
+
+      const parsed = parseHTML(html);
+      const project = await prepareProject(parsed, '/test/project.html');
+
+      const fragments = project.sequences[0].fragments;
+
+      // No blend modes specified, should be empty strings
+      expect(fragments[0].blendModeLeft).toBe('');
+      expect(fragments[1].blendModeLeft).toBe('');
     });
   });
 

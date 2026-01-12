@@ -26,8 +26,7 @@ export type Fragment = {
   assetName: string;
   duration: number; // calculated, in ms (can come from CSS or from the asset's duration)
   overlayLeft: number; // amount of ms to overlay with the previous fragment (normalized from margin-left + prev margin-right)
-  blendModeLeft: string; // how to blend the left fragment with the current fragment
-  blendModeRight: string; // how to blend the right fragment with the current fragment
+  blendModeLeft: string; // how to blend with the previous fragment (normalized from -blend-mode-left + prev -blend-mode-right)
   transitionIn: string; // how to transition into the fragment
   transitionInDuration: number; // how long the transition in lasts
   transitionOut: string; // how to transition out of the fragment

@@ -290,7 +290,9 @@ function processSequences(
 
   for (const sequenceElement of sequenceElements) {
     const fragmentElements = findFragmentChildren(sequenceElement);
-    const rawFragments: Array<Fragment & { overlayRight: number }> = [];
+    const rawFragments: Array<
+      Fragment & { overlayRight: number; blendModeRight: string }
+    > = [];
 
     for (const fragmentElement of fragmentElements) {
       const fragment = processFragment(fragmentElement, html, assets);
@@ -299,20 +301,25 @@ function processSequences(
       }
     }
 
-    // Normalize overlays: combine prev's overlayRight with current's overlayLeft
+    // Normalize overlays and blend modes: combine prev's overlayRight/blendModeRight with current's overlayLeft/blendModeLeft
     const fragments: Fragment[] = rawFragments.map((frag, idx) => {
       if (idx === 0) {
-        // First fragment: keep overlayLeft as-is, remove overlayRight
-        const { overlayRight, ...rest } = frag;
+        // First fragment: keep overlayLeft/blendModeLeft as-is, remove overlayRight/blendModeRight
+        const { overlayRight, blendModeRight, ...rest } = frag;
         return rest;
       }
 
       const prevOverlayRight = rawFragments[idx - 1].overlayRight;
-      const { overlayRight, ...rest } = frag;
+      const prevBlendModeRight = rawFragments[idx - 1].blendModeRight;
+      const { overlayRight, blendModeRight, blendModeLeft, ...rest } = frag;
+
+      // Blend mode priority: current blendModeLeft > prev blendModeRight
+      const normalizedBlendModeLeft = blendModeLeft || prevBlendModeRight;
 
       return {
         ...rest,
         overlayLeft: frag.overlayLeft + prevOverlayRight,
+        blendModeLeft: normalizedBlendModeLeft,
       };
     });
 
@@ -408,13 +415,13 @@ function findFragmentChildren(sequenceElement: Element): Element[] {
 
 /**
  * Processes a single fragment element
- * Returns fragment with temporary overlayRight for normalization
+ * Returns fragment with temporary overlayRight and blendModeLeft/Right for normalization
  */
 function processFragment(
   element: Element,
   html: ParsedHtml,
   assets: Map<string, Asset>,
-): (Fragment & { overlayRight: number }) | null {
+): (Fragment & { overlayRight: number; blendModeRight: string }) | null {
   const attrs = new Map(element.attrs.map((attr) => [attr.name, attr.value]));
   const styles = html.css.get(element) || {};
 
@@ -451,9 +458,9 @@ function processFragment(
     assetName,
     duration,
     overlayLeft,
-    overlayRight,
-    blendModeLeft,
-    blendModeRight,
+    overlayRight, // Temporary, will be normalized
+    blendModeLeft, // Will be normalized with prev blendModeRight
+    blendModeRight, // Temporary, will be normalized
     transitionIn: transitionIn.name,
     transitionInDuration: transitionIn.duration,
     transitionOut: transitionOut.name,
@@ -534,7 +541,7 @@ function parseTimeValue(value: string | undefined): number {
 /**
  * Parses a blend mode value from CSS
  * @param value - CSS blend mode value
- * @returns Blend mode string (empty string or "screen")
+ * @returns Blend mode string (e.g., "screen", "overlay", "multiply") or empty string if invalid
  */
 function parseBlendMode(value: string | undefined): string {
   if (!value) {
@@ -543,12 +550,26 @@ function parseBlendMode(value: string | undefined): string {
 
   const trimmed = value.trim();
 
-  // Only allow "screen" as valid blend mode
-  if (trimmed === 'screen') {
-    return 'screen';
+  // Allow common blend modes
+  const validBlendModes = [
+    'screen',
+    'multiply',
+    'overlay',
+    'darken',
+    'lighten',
+    'color-dodge',
+    'color-burn',
+    'hard-light',
+    'soft-light',
+    'difference',
+    'exclusion',
+  ];
+
+  if (validBlendModes.includes(trimmed)) {
+    return trimmed;
   }
 
-  // Default to empty string
+  // Default to empty string for invalid blend modes
   return '';
 }
 

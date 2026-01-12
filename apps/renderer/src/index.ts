@@ -1,8 +1,5 @@
-import { findElementsByTagName, parseHTMLFile } from './parser.js';
-import { FFmpegGenerator } from './ffmpeg-generator.js';
-import { resolve, dirname } from 'path';
-import { writeFile } from 'fs/promises';
-import { generate } from 'css-tree';
+import { parseHTMLFile } from './parser.js';
+import { resolve } from 'path';
 import { generateFilterComplex } from './generator.js';
 import { prepareProject } from './project.js';
 
@@ -17,73 +14,9 @@ async function main() {
   const fileContent = await parseHTMLFile(projectPath);
   const project = await prepareProject(fileContent, projectPath);
 
-  console.log('\n=== Asset Index Mapping ===');
-  for (const [assetName, index] of project.assetIndexMap) {
-    console.log(`  ${assetName} -> ${index}:v`);
-  }
-
-  console.log('\nSequences:', project.sequences.length);
-  project.sequences.forEach((seq, i) => {
-    console.log(`  Sequence ${i}: ${seq.fragments.length} fragments`);
-    seq.fragments.forEach((frag, j) => {
-      const blendInfo = frag.blendModeLeft || frag.blendModeRight
-        ? `, blendLeft="${frag.blendModeLeft}", blendRight="${frag.blendModeRight}"`
-        : '';
-      const transitionInfo = frag.transitionIn || frag.transitionOut
-        ? `, transIn="${frag.transitionIn}"(${frag.transitionInDuration}ms), transOut="${frag.transitionOut}"(${frag.transitionOutDuration}ms)`
-        : '';
-      const objectFitInfo = frag.objectFit !== 'cover' ? `, objectFit="${frag.objectFit}"` : '';
-      const overlayInfo = frag.overlayLeft !== 0 ? `, overlay=${frag.overlayLeft}ms` : '';
-      console.log(`    Fragment ${j}: assetName="${frag.assetName}", duration=${frag.duration}ms${overlayInfo}, zIndex=${frag.zIndex}${blendInfo}${transitionInfo}${objectFitInfo}`);
-    });
-  });
-
   console.log('\n=== Filter Complex ===');
   const filterComplex = generateFilterComplex(project);
   console.log(filterComplex);
-
-  // Debug: Show DAG structure
-  const { buildDAG } = await import('./generator.js');
-  const dag = buildDAG(project);
-
-  console.log('\n=== DAG Structure ===');
-  console.log(`Total nodes: ${dag.getNodes().size}`);
-  console.log(`Total edges: ${dag.getEdges().length}`);
-  console.log(`Inputs: ${Array.from(dag.getInputs()).join(', ')}`);
-  console.log(`Outputs: ${Array.from(dag.getOutputs()).join(', ')}`);
-
-  //   // Generate FFmpeg command
-  //   console.log('\n=== Generating FFmpeg Command ===\n');
-  //   const projectDir = dirname(projectPath);
-  //   const generator = new FFmpegGenerator(parsed);
-
-  //   // Print summary
-  //   console.log(generator.generateSummary());
-
-  //   // Print FFmpeg command
-  //   console.log('\n=== Generated FFmpeg Command ===\n');
-  //   const command = generator.generate();
-  //   console.log(command);
-
-  //   // Save to executable script
-  //   const scriptPath = resolve(projectDir, 'render.sh');
-  //   const scriptContent = `#!/bin/bash
-  // set -e
-
-  // cd "$(dirname "$0")"
-
-  // echo "Rendering video project..."
-  // echo ""
-
-  // ${command}
-
-  // echo ""
-  // echo "✓ Render complete! Output: ./output/for_youtube.mp4"
-  // `;
-
-  //   await writeFile(scriptPath, scriptContent, { mode: 0o755 });
-  //   console.log(`\n✓ Saved executable script to: ${scriptPath}`);
-  //   console.log(`  Run with: cd ${projectDir} && ./render.sh`);
 }
 
 main().catch((error) => {
