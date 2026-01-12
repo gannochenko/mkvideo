@@ -1,10 +1,19 @@
 import { ProjectStructure, Sequence, Fragment } from './type';
-import { makeConcat, makeXFade, makeCopy } from './ffmpeg';
+import { makeConcat, makeXFade, makeCopy } from './filtercomplex';
 import { StreamDAG } from './dag';
 
 export function generateFilterComplex(project: ProjectStructure): string {
+  const dag = buildDAG(project);
+  return dag.render();
+}
+
+/**
+ * Builds the StreamDAG from a project structure
+ * Exposed for debugging and analysis
+ */
+export function buildDAG(project: ProjectStructure): StreamDAG {
   if (project.sequences.length === 0) {
-    return '';
+    return new StreamDAG();
   }
 
   const dag = new StreamDAG();
@@ -33,7 +42,7 @@ export function generateFilterComplex(project: ProjectStructure): string {
     dag.add(makeConcat(sequenceOutputs, 'outv'));
   }
 
-  return dag.render();
+  return dag;
 }
 
 /**

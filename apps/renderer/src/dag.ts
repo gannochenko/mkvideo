@@ -1,12 +1,29 @@
-import { Filter } from './ffmpeg';
+import { Filter } from './filtercomplex';
+
+/**
+ * A node in the stream DAG (represents a stream label)
+ */
+export type StreamNode = {
+  id: string; // e.g., "0:v", "outv", "g0"
+};
+
+/**
+ * An edge in the stream DAG (represents a filter connecting streams)
+ */
+export type FilterEdge = {
+  filter: Filter;
+  from: string[]; // Input stream IDs
+  to: string; // Output stream ID
+};
 
 /**
  * StreamDAG - Represents FFmpeg filter_complex as a DAG
- * Vertices: Stream labels (0:v, outv, etc.)
- * Edges: Filters connecting streams
+ * Vertices: Stream nodes (stream labels)
+ * Edges: Filter edges connecting streams
  */
 export class StreamDAG {
-  private filters: Filter[] = [];
+  private nodes: Map<string, StreamNode> = new Map();
+  private edges: FilterEdge[] = [];
 
   /**
    * Generates a random intermediate label
@@ -18,18 +35,79 @@ export class StreamDAG {
   }
 
   /**
-   * Adds a filter to the DAG
+   * Adds a filter edge to the DAG
+   * Automatically creates nodes for all referenced streams
    * Returns the output label for chaining
    */
   add(filter: Filter): string {
-    this.filters.push(filter);
+    // Add nodes for all input streams
+    for (const input of filter.inputs) {
+      if (!this.nodes.has(input)) {
+        this.nodes.set(input, { id: input });
+      }
+    }
+
+    // Add node for output stream
+    if (!this.nodes.has(filter.output)) {
+      this.nodes.set(filter.output, { id: filter.output });
+    }
+
+    // Add edge
+    this.edges.push({
+      filter,
+      from: filter.inputs,
+      to: filter.output,
+    });
+
     return filter.output;
+  }
+
+  /**
+   * Gets all input nodes (not produced by any filter)
+   */
+  getInputs(): Set<string> {
+    const outputs = new Set(this.edges.map((e) => e.to));
+    const inputs = new Set<string>();
+    for (const nodeId of this.nodes.keys()) {
+      if (!outputs.has(nodeId)) {
+        inputs.add(nodeId);
+      }
+    }
+    return inputs;
+  }
+
+  /**
+   * Gets all output nodes (not consumed by any filter)
+   */
+  getOutputs(): Set<string> {
+    const consumed = new Set(this.edges.flatMap((e) => e.from));
+    const outputs = new Set<string>();
+    for (const nodeId of this.nodes.keys()) {
+      if (!consumed.has(nodeId)) {
+        outputs.add(nodeId);
+      }
+    }
+    return outputs;
+  }
+
+  /**
+   * Gets all nodes in the DAG
+   */
+  getNodes(): Map<string, StreamNode> {
+    return new Map(this.nodes);
+  }
+
+  /**
+   * Gets all edges in the DAG
+   */
+  getEdges(): FilterEdge[] {
+    return [...this.edges];
   }
 
   /**
    * Renders the DAG into filter_complex string
    */
   render(): string {
-    return this.filters.map((f) => f.render()).join(';');
+    return this.edges.map((e) => e.filter.render()).join(';');
   }
 }

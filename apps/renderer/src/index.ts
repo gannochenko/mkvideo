@@ -42,6 +42,16 @@ async function main() {
   const filterComplex = generateFilterComplex(project);
   console.log(filterComplex);
 
+  // Debug: Show DAG structure
+  const { buildDAG } = await import('./generator.js');
+  const dag = buildDAG(project);
+
+  console.log('\n=== DAG Structure ===');
+  console.log(`Total nodes: ${dag.getNodes().size}`);
+  console.log(`Total edges: ${dag.getEdges().length}`);
+  console.log(`Inputs: ${Array.from(dag.getInputs()).join(', ')}`);
+  console.log(`Outputs: ${Array.from(dag.getOutputs()).join(', ')}`);
+
   //   // Generate FFmpeg command
   //   console.log('\n=== Generating FFmpeg Command ===\n');
   //   const projectDir = dirname(projectPath);

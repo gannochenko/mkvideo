@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { makeConcat, makeXFade, makeCopy } from './ffmpeg';
+import { makeConcat, makeXFade, makeCopy } from './filtercomplex';
 
-describe('ffmpeg filter factories', () => {
+describe('filter_complex factories', () => {
   describe('makeConcat', () => {
     it('should create a concat filter with default options', () => {
       const filter = makeConcat(['0:v', '1:v', '2:v'], 'outv');
