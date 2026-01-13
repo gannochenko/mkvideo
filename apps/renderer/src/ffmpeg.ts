@@ -9,6 +9,12 @@ export function generateFFmpegCommand(
 ): string {
   const parts: string[] = ['ffmpeg'];
 
+  // Overwrite output file without asking
+  parts.push('-y');
+
+  // Ignore rotation metadata to avoid size mismatches
+  parts.push('-noautorotate');
+
   // Add input files in order of their index mapping
   const inputsByIndex = new Map<number, string>();
   for (const [assetName, index] of project.assetIndexMap) {
@@ -36,11 +42,15 @@ export function generateFFmpegCommand(
   // TODO: Handle audio streams as well
   parts.push('-map "[outv]"');
 
+  // Increase buffer queue size for complex filter graphs
+  parts.push('-max_muxing_queue_size 4096');
+
   // Add output parameters
   const { width, height } = project.output.resolution;
   parts.push(`-s ${width}x${height}`);
   parts.push(`-r ${project.output.fps}`);
   parts.push('-pix_fmt yuv420p'); // Standard pixel format for compatibility
+  parts.push('-preset ultrafast'); // Fast encoding for quick results
 
   // Add output path
   parts.push(`"${project.output.path}"`);

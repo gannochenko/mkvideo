@@ -39,12 +39,13 @@ async function main() {
     });
 
     // FFmpeg outputs progress to stderr
+    let stderrBuffer = '';
     ffmpeg.stderr.on('data', (data) => {
       const output = data.toString();
-      // Only show progress lines (contain 'time=' or 'frame=')
-      if (output.includes('frame=') || output.includes('time=')) {
-        process.stdout.write('\r' + output.trim());
-      }
+      stderrBuffer += output;
+
+      // Show all output for debugging
+      process.stderr.write(output);
     });
 
     ffmpeg.on('close', (code) => {

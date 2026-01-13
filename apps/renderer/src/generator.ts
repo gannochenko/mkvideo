@@ -1,5 +1,5 @@
 import { ProjectStructure, Sequence, Fragment } from './type';
-import { makeConcat, makeXFade, makeCopy } from './filtercomplex';
+import { makeConcat, makeXFade, makeCopy, makeFps, makeScale } from './filtercomplex';
 import { StreamDAG } from './dag';
 
 export function generateFilterComplex(project: ProjectStructure): string {
@@ -18,10 +18,24 @@ export function buildDAG(project: ProjectStructure): StreamDAG {
 
   const dag = new StreamDAG();
 
-  // Process each sequence
+  // Filter out audio-only sequences (sequences where all assets are audio-only)
+  const videoSequences = project.sequences.filter((sequence) => {
+    return sequence.fragments.some((fragment) => {
+      const asset = project.assets.get(fragment.assetName);
+      // Include if asset has video (video or image)
+      return asset && (asset.type === 'video' || asset.type === 'image');
+    });
+  });
+
+  if (videoSequences.length === 0) {
+    console.warn('No video sequences found in project');
+    return new StreamDAG();
+  }
+
+  // Process each video sequence
   const sequenceOutputs: string[] = [];
-  for (let seqIdx = 0; seqIdx < project.sequences.length; seqIdx++) {
-    const sequence = project.sequences[seqIdx];
+  for (let seqIdx = 0; seqIdx < videoSequences.length; seqIdx++) {
+    const sequence = videoSequences[seqIdx];
     const outputLabel = dag.label();
 
     const output = generateSequenceGraph(
@@ -84,6 +98,7 @@ function generateSequenceGraph(
 
 /**
  * Builds a graph with a single concat filter for all fragments
+ * Adds scale filter to normalize all inputs to 1920x1080
  */
 function buildConcatGraph(
   dag: StreamDAG,
@@ -91,11 +106,13 @@ function buildConcatGraph(
   assetIndexMap: Map<string, number>,
   outputLabel: string,
 ): void {
-  const inputs = fragments.map((frag) => {
+  const scaledInputs = fragments.map((frag) => {
     const inputIndex = assetIndexMap.get(frag.assetName) ?? 0;
-    return `${inputIndex}:v`;
+    const scaledLabel = dag.label();
+    dag.add(makeScale(`${inputIndex}:v`, scaledLabel, { width: 1920, height: 1080 }));
+    return scaledLabel;
   });
-  dag.add(makeConcat(inputs, outputLabel));
+  dag.add(makeConcat(scaledInputs, outputLabel));
 }
 
 /**
@@ -123,18 +140,24 @@ function buildHybridGraph(
 
   // If we have 2+ non-overlapping fragments at the start, concat them
   if (concatEnd >= 1) {
-    const inputs = [];
+    const scaledInputs = [];
     for (let i = 0; i <= concatEnd; i++) {
       const inputIndex = assetIndexMap.get(fragments[i].assetName) ?? 0;
-      inputs.push(`${inputIndex}:v`);
+      const scaledLabel = dag.label();
+      dag.add(makeScale(`${inputIndex}:v`, scaledLabel, { width: 1920, height: 1080 }));
+      scaledInputs.push(scaledLabel);
       timeOffset += fragments[i].duration;
     }
-    currentLabel = dag.add(makeConcat(inputs, dag.label()));
+    const concatLabel = dag.label();
+    currentLabel = dag.add(makeConcat(scaledInputs, concatLabel));
+    // Normalize FPS and timebase after concat
+    currentLabel = dag.add(makeFps(currentLabel, dag.label(), 30));
     nextFragmentIndex = concatEnd + 1;
   } else {
-    // Start with first fragment
+    // Start with first fragment (scale it)
     const firstInputIndex = assetIndexMap.get(fragments[0].assetName) ?? 0;
-    currentLabel = `${firstInputIndex}:v`;
+    currentLabel = dag.label();
+    dag.add(makeScale(`${firstInputIndex}:v`, currentLabel, { width: 1920, height: 1080 }));
     timeOffset = fragments[0].duration;
     nextFragmentIndex = 1;
   }
@@ -144,6 +167,12 @@ function buildHybridGraph(
     const currFragment = fragments[nextFragmentIndex];
     const inputIndex = assetIndexMap.get(currFragment.assetName) ?? 0;
 
+    // Scale and normalize FPS before xfade
+    const scaledLabel = dag.label();
+    dag.add(makeScale(`${inputIndex}:v`, scaledLabel, { width: 1920, height: 1080 }));
+    const scaledInput = dag.label();
+    dag.add(makeFps(scaledLabel, scaledInput, 30));
+
     // Adjust offset for overlap (now only overlayLeft matters)
     timeOffset += currFragment.overlayLeft;
 
@@ -152,7 +181,7 @@ function buildHybridGraph(
     const transitionDuration = Math.abs(currFragment.overlayLeft) / 1000;
 
     currentLabel = dag.add(
-      makeXFade(currentLabel, `${inputIndex}:v`, nextLabel, {
+      makeXFade(currentLabel, scaledInput, nextLabel, {
         duration: transitionDuration,
         offset: timeOffset / 1000,
       }),
