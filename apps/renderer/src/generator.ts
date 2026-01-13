@@ -1,6 +1,6 @@
 import { ProjectStructure, Sequence, Fragment } from './type';
-import { makeConcat, makeXFade, makeCopy, makeFps, makeScale } from './filtercomplex';
 import { StreamDAG } from './dag';
+import { StreamUtils } from './stream-builder';
 
 export function generateFilterComplex(project: ProjectStructure): string {
   const dag = buildDAG(project);
@@ -50,10 +50,11 @@ export function buildDAG(project: ProjectStructure): StreamDAG {
   // Connect all sequences with concat
   if (sequenceOutputs.length === 1) {
     // Single sequence, just copy to output
-    dag.add(makeCopy(sequenceOutputs[0], 'outv'));
+    dag.from(sequenceOutputs[0]).copyTo('outv');
   } else {
     // Multiple sequences, concat them in time
-    dag.add(makeConcat(sequenceOutputs, 'outv'));
+    const streams = sequenceOutputs.map((label) => dag.from(label));
+    StreamUtils.concatTo(dag, streams, 'outv');
   }
 
   return dag;
@@ -78,7 +79,7 @@ function generateSequenceGraph(
     // Single fragment, just copy it
     const fragment = fragments[0];
     const inputIndex = assetIndexMap.get(fragment.assetName) ?? 0;
-    dag.add(makeCopy(`${inputIndex}:v`, outputLabel));
+    dag.from(`${inputIndex}:v`).copyTo(outputLabel);
     return outputLabel;
   }
 
@@ -106,17 +107,15 @@ function buildConcatGraph(
   assetIndexMap: Map<string, number>,
   outputLabel: string,
 ): void {
-  const normalizedInputs = fragments.map((frag) => {
+  const streams = fragments.map((frag) => {
     const inputIndex = assetIndexMap.get(frag.assetName) ?? 0;
-    // Scale to output resolution
-    const scaledLabel = dag.label();
-    dag.add(makeScale(`${inputIndex}:v`, scaledLabel, { width: 1920, height: 1080 }));
-    // Normalize FPS to match output
-    const fpsLabel = dag.label();
-    dag.add(makeFps(scaledLabel, fpsLabel, 30));
-    return fpsLabel;
+    return dag
+      .from(`${inputIndex}:v`)
+      .scale({ width: 1920, height: 1080 })
+      .fps(30);
   });
-  dag.add(makeConcat(normalizedInputs, outputLabel));
+
+  StreamUtils.concatTo(dag, streams, outputLabel);
 }
 
 /**
@@ -138,35 +137,32 @@ function buildHybridGraph(
     concatEnd = i + 1;
   }
 
-  let currentLabel = '';
+  let currentStream;
   let timeOffset = 0;
   let nextFragmentIndex = 0;
 
   // If we have 2+ non-overlapping fragments at the start, concat them
   if (concatEnd >= 1) {
-    const normalizedInputs = [];
+    const streams = [];
     for (let i = 0; i <= concatEnd; i++) {
       const inputIndex = assetIndexMap.get(fragments[i].assetName) ?? 0;
-      // Scale to output resolution
-      const scaledLabel = dag.label();
-      dag.add(makeScale(`${inputIndex}:v`, scaledLabel, { width: 1920, height: 1080 }));
-      // Normalize FPS to match output
-      const fpsLabel = dag.label();
-      dag.add(makeFps(scaledLabel, fpsLabel, 30));
-      normalizedInputs.push(fpsLabel);
+      streams.push(
+        dag
+          .from(`${inputIndex}:v`)
+          .scale({ width: 1920, height: 1080 })
+          .fps(30),
+      );
       timeOffset += fragments[i].duration;
     }
-    currentLabel = dag.label();
-    dag.add(makeConcat(normalizedInputs, currentLabel));
+    currentStream = StreamUtils.concat(dag, streams);
     nextFragmentIndex = concatEnd + 1;
   } else {
-    // Start with first fragment (scale it)
+    // Start with first fragment
     const firstInputIndex = assetIndexMap.get(fragments[0].assetName) ?? 0;
-    const scaledLabel = dag.label();
-    dag.add(makeScale(`${firstInputIndex}:v`, scaledLabel, { width: 1920, height: 1080 }));
-    // Normalize FPS and timebase before xfade
-    currentLabel = dag.label();
-    dag.add(makeFps(scaledLabel, currentLabel, 30));
+    currentStream = dag
+      .from(`${firstInputIndex}:v`)
+      .scale({ width: 1920, height: 1080 })
+      .fps(30);
     timeOffset = fragments[0].duration;
     nextFragmentIndex = 1;
   }
@@ -177,24 +173,30 @@ function buildHybridGraph(
     const inputIndex = assetIndexMap.get(currFragment.assetName) ?? 0;
 
     // Scale and normalize FPS before xfade
-    const scaledLabel = dag.label();
-    dag.add(makeScale(`${inputIndex}:v`, scaledLabel, { width: 1920, height: 1080 }));
-    const scaledInput = dag.label();
-    dag.add(makeFps(scaledLabel, scaledInput, 30));
+    const nextStream = dag
+      .from(`${inputIndex}:v`)
+      .scale({ width: 1920, height: 1080 })
+      .fps(30);
 
-    // Adjust offset for overlap (now only overlayLeft matters)
+    // Adjust offset for overlap
     timeOffset += currFragment.overlayLeft;
 
     const isLast = nextFragmentIndex === fragments.length - 1;
-    const nextLabel = isLast ? outputLabel : dag.label();
     const transitionDuration = Math.abs(currFragment.overlayLeft) / 1000;
 
-    currentLabel = dag.add(
-      makeXFade(currentLabel, scaledInput, nextLabel, {
+    if (isLast) {
+      // Last fragment - output to final label
+      currentStream = currentStream.xfadeTo(nextStream, outputLabel, {
         duration: transitionDuration,
         offset: timeOffset / 1000,
-      }),
-    );
+      });
+    } else {
+      // Intermediate fragment - auto-generate label
+      currentStream = currentStream.xfade(nextStream, {
+        duration: transitionDuration,
+        offset: timeOffset / 1000,
+      });
+    }
 
     timeOffset += currFragment.duration;
     nextFragmentIndex++;

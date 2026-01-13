@@ -1,4 +1,5 @@
 import { Filter } from './filtercomplex';
+import { StreamBuilder } from './stream-builder';
 
 /**
  * A node in the stream DAG (represents a stream label)
@@ -111,5 +112,17 @@ export class StreamDAG {
    */
   render(): string {
     return this.edges.map((e) => e.filter.render()).join(';');
+  }
+
+  /**
+   * Creates a StreamBuilder starting from an input label
+   * @param inputLabel - The starting stream label (e.g., '0:v', '1:v')
+   */
+  from(inputLabel: string): StreamBuilder {
+    // Ensure the input node exists in the graph
+    if (!this.nodes.has(inputLabel)) {
+      this.nodes.set(inputLabel, { id: inputLabel });
+    }
+    return new StreamBuilder(this, inputLabel);
   }
 }
