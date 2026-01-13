@@ -3,10 +3,7 @@ import { resolve } from 'path';
 import { generateFilterComplex } from './generator.js';
 import { prepareProject } from './project.js';
 import { generateFFmpegCommand } from './ffmpeg.js';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
+import { spawn } from 'child_process';
 
 console.log('Renderer application starting...');
 
@@ -28,29 +25,47 @@ async function main() {
   console.log(ffmpegCommand);
 
   console.log('\n=== Starting Render ===');
-  console.log('This may take a while...\n');
+  console.log('Progress:\n');
 
-  try {
-    const { stdout, stderr } = await execAsync(ffmpegCommand, {
-      maxBuffer: 10 * 1024 * 1024, // 10MB buffer for ffmpeg output
+  // Parse command into array (handle quoted paths)
+  const args = ffmpegCommand
+    .slice('ffmpeg '.length)
+    .match(/(?:[^\s"]+|"[^"]*")+/g)
+    ?.map((arg) => arg.replace(/^"|"$/g, '')) || [];
+
+  return new Promise<void>((resolve, reject) => {
+    const ffmpeg = spawn('ffmpeg', args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
 
-    if (stderr) {
-      console.log('FFmpeg output:');
-      console.log(stderr);
-    }
+    // FFmpeg outputs progress to stderr
+    ffmpeg.stderr.on('data', (data) => {
+      const output = data.toString();
+      // Only show progress lines (contain 'time=' or 'frame=')
+      if (output.includes('frame=') || output.includes('time=')) {
+        process.stdout.write('\r' + output.trim());
+      }
+    });
 
-    console.log('\n=== Render Complete ===');
-    console.log(`Output file: ${project.output.path}`);
-  } catch (error: any) {
-    console.error('\n=== Render Failed ===');
-    console.error('Error:', error.message);
-    if (error.stderr) {
-      console.error('\nFFmpeg stderr:');
-      console.error(error.stderr);
-    }
-    throw error;
-  }
+    ffmpeg.on('close', (code) => {
+      process.stdout.write('\n');
+      if (code === 0) {
+        console.log('\n=== Render Complete ===');
+        console.log(`Output file: ${project.output.path}`);
+        resolve();
+      } else {
+        console.error(`\n=== Render Failed ===`);
+        console.error(`FFmpeg exited with code ${code}`);
+        reject(new Error(`FFmpeg process exited with code ${code}`));
+      }
+    });
+
+    ffmpeg.on('error', (error) => {
+      console.error('\n=== Render Failed ===');
+      console.error('Error:', error.message);
+      reject(error);
+    });
+  });
 }
 
 main().catch((error) => {
