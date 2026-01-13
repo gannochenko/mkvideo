@@ -67,3 +67,8 @@ export class LabelGenerator {
     return this.usedLabels.size;
   }
 }
+
+const gen = new LabelGenerator();
+
+// fucking singleton
+export const getLabel = () => gen.generate();

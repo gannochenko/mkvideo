@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { prepareProject } from './project';
-import { parseHTML } from './parser';
-import type { ParsedHtml } from './type';
+import { parseHTML } from './html-parser';
 import { execFile } from 'child_process';
 
 // Mock execFile to avoid actual ffprobe calls

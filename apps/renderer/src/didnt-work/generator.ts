@@ -1,4 +1,4 @@
-import { ProjectStructure, Sequence, Fragment } from './type';
+import { ProjectStructure, Sequence, Fragment } from '../type';
 import { StreamDAG } from './dag';
 import { StreamUtils } from './stream-builder';
 

@@ -29,7 +29,9 @@ export const makeStream = (inputLabel: string) => {
  * @param streams - Array of StreamBuilder instances to concatenate
  * @returns A new StreamBuilder representing the concatenated result
  */
-export const startStreamWithConcat = (streams: StreamBuilder[]): StreamBuilder => {
+export const startStreamWithConcat = (
+  streams: StreamBuilder[],
+): StreamBuilder => {
   if (streams.length === 0) {
     throw new Error('startStreamWithConcat requires at least one stream');
   }

@@ -17,7 +17,7 @@ import {
   makeSetpts,
   makeAtrim,
   makeAfade,
-} from './filtercomplex';
+} from '../filtercomplex';
 
 describe('filter_complex factories', () => {
   describe('makeConcat', () => {
@@ -346,9 +346,7 @@ describe('filter_complex factories', () => {
 
       expect(filter.inputs).toEqual(['input']);
       expect(filter.outputs).toEqual(['output']);
-      expect(filter.render()).toBe(
-        '[input]colorkey=0x000000:0.3:0.2[output]',
-      );
+      expect(filter.render()).toBe('[input]colorkey=0x000000:0.3:0.2[output]');
     });
 
     it('should handle different color formats', () => {
