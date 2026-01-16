@@ -2,6 +2,10 @@ import { parseHTMLFile } from './html-parser.js';
 import { resolve } from 'path';
 import { prepareProject } from './project.js';
 import { spawn } from 'child_process';
+import { FilterBuffer, makeStream } from './stream.js';
+import { getLabel } from './label-generator.js';
+import { makeFFmpegCommand } from './ffmpeg.js';
+import { buffer } from 'stream/consumers';
 
 console.log('Renderer application starting...');
 
@@ -14,105 +18,84 @@ async function main() {
   const fileContent = await parseHTMLFile(projectPath);
   const project = await prepareProject(fileContent, projectPath);
 
-  const input1VideoStream = makeStream('1:v')
-    .rotate(90)
+  const buf = new FilterBuffer();
+
+  const input1VideoStream = makeStream(
+    {
+      tag: '0:v',
+      isAudio: false,
+    },
+    buf,
+  )
+    .transpose(3)
     .scale({ width: 1920, height: 1080 }, 'cover') // or 'contain'
-    .fps(30);
+    .fps(30)
+    .endTo({
+      tag: 'outv',
+      isAudio: false,
+    });
 
-  // console.log('\n=== Filter Complex ===');
-  // // const filterComplex = generateFilterComplex(project);
-  // // console.log(filterComplex);
+  const input1AudioStream = makeStream(
+    {
+      tag: '0:a',
+      isAudio: true,
+    },
+    buf,
+  ).endTo({
+    tag: 'outa',
+    isAudio: true,
+  });
 
-  // const dag = new StreamDAG();
+  // console.log(input1VideoStream.render());
 
-  // // asset transformation streams
-  // const assetVideoStream0 = startStream('0:v')
-  //   .correctRotation(90)
-  //   .scale({ width: 1920, height: 1080 })
-  //   .fps(30);
-  // const assetVideoStream1 = startStream('1:v')
-  //   .scale({ width: 1920, height: 1080 })
-  //   .fps(30);
+  const ffmpegCommand = makeFFmpegCommand(project, input1VideoStream.render());
 
-  // const assetAudioStream0 = startStream('0:a');
-  // const assetAudioStream1 = startStream('1:a');
+  console.log(ffmpegCommand);
 
-  // // Concat video streams
-  // const videoStream = startStreamWithConcat([
-  //   assetVideoStream0,
-  //   assetVideoStream1,
-  // ]);
+  console.log('\n=== Starting Render ===');
+  console.log('Progress:\n');
 
-  // const audioStream = startStreamWithConcat([
-  //   assetAudioStream0,
-  //   assetAudioStream1,
-  // ]);
+  // Parse command into array (handle quoted paths)
+  const args =
+    ffmpegCommand
+      .slice('ffmpeg '.length)
+      .match(/(?:[^\s"]+|"[^"]*")+/g)
+      ?.map((arg) => arg.replace(/^"|"$/g, '')) || [];
 
-  // // Append the concatenated streams to main DAG
-  // dag.appendStreams([videoStream, audioStream]);
+  return new Promise<void>((resolve, reject) => {
+    const ffmpeg = spawn('ffmpeg', args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
 
-  // // Wire streams to output labels
-  // dag.from(videoStream.getLooseLabel()).copyTo('outv');
-  // dag.from(audioStream.getLooseLabel()).copyTo('outa');
+    // FFmpeg outputs progress to stderr
+    let stderrBuffer = '';
+    ffmpeg.stderr.on('data', (data) => {
+      const output = data.toString();
+      stderrBuffer += output;
 
-  // const filterComplex = dag.render();
+      // Show all output for debugging
+      process.stderr.write(output);
+    });
 
-  // console.log('\n=== Filter ===');
-  // console.log(filterComplex);
+    ffmpeg.on('close', (code) => {
+      process.stdout.write('\n');
+      if (code === 0) {
+        console.log('\n=== Render Complete ===');
+        console.log(`Output file: ${project.output.path}`);
+        resolve();
+      } else {
+        console.error(`\n=== Render Failed ===`);
+        console.error(`FFmpeg exited with code ${code}`);
+        reject(new Error(`FFmpeg process exited with code ${code}`));
+      }
+    });
 
-  // console.log('\n=== Output ===');
-  // console.log(project.output);
-
-  // console.log('\n=== FFmpeg Command ===');
-  // const ffmpegCommand = generateFFmpegCommand(project, filterComplex);
-  // console.log(ffmpegCommand);
-
-  return;
-
-  // console.log('\n=== Starting Render ===');
-  // console.log('Progress:\n');
-
-  // // Parse command into array (handle quoted paths)
-  // const args =
-  //   ffmpegCommand
-  //     .slice('ffmpeg '.length)
-  //     .match(/(?:[^\s"]+|"[^"]*")+/g)
-  //     ?.map((arg) => arg.replace(/^"|"$/g, '')) || [];
-
-  // return new Promise<void>((resolve, reject) => {
-  //   const ffmpeg = spawn('ffmpeg', args, {
-  //     stdio: ['ignore', 'pipe', 'pipe'],
-  //   });
-
-  //   // FFmpeg outputs progress to stderr
-  //   let stderrBuffer = '';
-  //   ffmpeg.stderr.on('data', (data) => {
-  //     const output = data.toString();
-  //     stderrBuffer += output;
-
-  //     // Show all output for debugging
-  //     process.stderr.write(output);
-  //   });
-
-  //   ffmpeg.on('close', (code) => {
-  //     process.stdout.write('\n');
-  //     if (code === 0) {
-  //       console.log('\n=== Render Complete ===');
-  //       console.log(`Output file: ${project.output.path}`);
-  //       resolve();
-  //     } else {
-  //       console.error(`\n=== Render Failed ===`);
-  //       console.error(`FFmpeg exited with code ${code}`);
-  //       reject(new Error(`FFmpeg process exited with code ${code}`));
-  //     }
-  //   });
-
-  //   ffmpeg.on('error', (error) => {
-  //     console.error('\n=== Render Failed ===');
-  //     console.error('Error:', error.message);
-  //     reject(error);
-  //   });
-  // });
+    ffmpeg.on('error', (error) => {
+      console.error('\n=== Render Failed ===');
+      console.error('Error:', error.message);
+      reject(error);
+    });
+  });
 }
 
 main().catch((error) => {

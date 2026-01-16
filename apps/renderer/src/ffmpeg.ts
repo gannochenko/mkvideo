@@ -6,11 +6,34 @@ export type Label = {
   isAudio: boolean; // false for video, true for audio
 };
 
-export type Filter = {
-  inputs: Label[];
-  outputs: Label[]; // Array to support filters with multiple outputs (e.g., split)
-  render: () => string;
-};
+// export type Filter = {
+//   inputs: Label[];
+//   outputs: Label[]; // Array to support filters with multiple outputs (e.g., split)
+//   render: () => string;
+// };
+
+export class Filter {
+  constructor(
+    private inputs: Label[],
+    public outputs: Label[],
+    public body: string,
+  ) {}
+
+  public render(): string {
+    let result = '';
+    this.inputs.forEach((input) => {
+      result += wrap(input.tag);
+    });
+
+    result += this.body;
+
+    this.outputs.forEach((input) => {
+      result += wrap(input.tag);
+    });
+
+    return result;
+  }
+}
 
 /**
  * Generates the complete ffmpeg command for rendering the project
@@ -147,12 +170,7 @@ export function makeConcat(inputs: Label[]): Filter {
     });
   }
 
-  return {
-    inputs,
-    outputs,
-    render: () =>
-      `${inputs.map((l) => wrap(l.tag)).join('')}concat=n=${n}:v=${v}:a=${a}${outputs.map((l) => wrap(l.tag)).join('')}`,
-  };
+  return new Filter(inputs, outputs, `concat=n=${n}:v=${v}:a=${a}`);
 }
 
 /**
@@ -198,36 +216,36 @@ export function makeXFade(
     isAudio: false,
   };
 
-  return {
-    inputs: [input1, input2],
-    outputs: [output],
-    render: () =>
-      `${wrap(input1.tag)}${wrap(input2.tag)}xfade=transition=${transition}:duration=${options.duration}:offset=${options.offset}${wrap(output.tag)}`,
-  };
+  return new Filter(
+    [input1, input2],
+    [output],
+    `xfade=transition=${transition}:duration=${options.duration}:offset=${options.offset}`,
+  );
 }
 
 /**
- * Creates a copy filter (passthrough)
+ * Creates a null filter (passthrough)
  * @param input - Input stream label
  */
-export function makeCopy(inputs: Label[]): Filter {
+export function makeNull(inputs: Label[]): Filter {
   if (inputs.length !== 1) {
-    throw new Error(`makeCopy: expects one input`);
+    throw new Error(`makeNull: expects one input`);
   }
 
   const input1 = inputs[0];
 
   const outputLabelTag = getLabel();
-  return {
-    inputs: [input1],
-    outputs: [
+
+  return new Filter(
+    [input1],
+    [
       {
         tag: outputLabelTag,
         isAudio: input1.isAudio,
       },
     ],
-    render: () => `${wrap(input1.tag)}copy${wrap(outputLabelTag)}`,
-  };
+    input1.isAudio ? 'anull' : 'null',
+  );
 }
 
 export function makeOverlay(inputs: Label[]): Filter {
@@ -255,12 +273,7 @@ export function makeOverlay(inputs: Label[]): Filter {
     isAudio: false,
   };
 
-  return {
-    inputs: inputs,
-    outputs: [output],
-    render: () =>
-      `${wrap(input1.tag)}${wrap(input2.tag)}overlay=format=auto${wrap(output.tag)}`,
-  };
+  return new Filter(inputs, [output], 'overlay=format=auto');
 }
 
 export function makeFps(inputs: Label[], fps: number): Filter {
@@ -280,11 +293,7 @@ export function makeFps(inputs: Label[], fps: number): Filter {
     isAudio: false,
   };
 
-  return {
-    inputs: inputs,
-    outputs: [output],
-    render: () => `${wrap(input1.tag)}fps=${fps}${wrap(output.tag)}`,
-  };
+  return new Filter(inputs, [output], `fps=${fps}`);
 }
 
 export function makeScale(
@@ -307,12 +316,11 @@ export function makeScale(
     isAudio: false,
   };
 
-  return {
-    inputs: inputs,
-    outputs: [output],
-    render: () =>
-      `${wrap(input1.tag)}scale=${options.width}:${options.height}${wrap(output.tag)}`,
-  };
+  return new Filter(
+    inputs,
+    [output],
+    `scale=${options.width}:${options.height}`,
+  );
 }
 
 /**
@@ -336,12 +344,19 @@ export function makeSplit(inputs: Label[]): Filter {
     isAudio: input1.isAudio,
   };
 
-  return {
-    inputs: inputs,
-    outputs: [output1, output2], // Multiple outputs!
-    render: () =>
-      `${wrap(input1.tag)}split${[output1.tag, output2.tag].map(wrap).join('')}`,
+  return new Filter(inputs, [output1, output2], 'split');
+}
+
+export function makeTranspose(
+  inputs: Label[],
+  direction: 0 | 1 | 2 | 3,
+): Filter {
+  const output = {
+    tag: getLabel(),
+    isAudio: false,
   };
+
+  return new Filter(inputs, [output], `transpose=${direction}`);
 }
 
 /**
