@@ -22,9 +22,9 @@ async function main() {
 
   makeStream(project.getVideoInputLabelByAssetName('clip_02'), buf)
     .trim(0, 1)
-    .fitOutput({ width: 1920, height: 1080 })
+    .coverOutput({ width: 1920, height: 1080 })
     .fps(30)
-    .blur(100)
+    // .blur(100)
     .endTo({
       tag: 'outv',
       isAudio: false,

@@ -430,6 +430,47 @@ export function makePad(
 }
 
 /**
+ * Creates a crop filter to cut video to specific dimensions
+ * @param inputs - Input stream labels (must be video)
+ * @param options - Crop parameters
+ *   - width: Output width (can be expression or number)
+ *   - height: Output height (can be expression or number)
+ *   - x: X position to start crop (default: center using '(in_w-out_w)/2')
+ *   - y: Y position to start crop (default: center using '(in_h-out_h)/2')
+ */
+export function makeCrop(
+  inputs: Label[],
+  options: {
+    width: number | string;
+    height: number | string;
+    x?: string;
+    y?: string;
+  },
+): Filter {
+  const input = inputs[0];
+
+  if (input.isAudio) {
+    throw new Error(
+      `makeCrop: input must be video, got audio (tag: ${input.tag})`,
+    );
+  }
+
+  const output = {
+    tag: getLabel(),
+    isAudio: false,
+  };
+
+  const x = options.x ?? '(in_w-out_w)/2';
+  const y = options.y ?? '(in_h-out_h)/2';
+
+  return new Filter(
+    inputs,
+    [output],
+    `crop=${options.width}:${options.height}:${x}:${y}`,
+  );
+}
+
+/**
  * Creates an eq (equalization) filter for color correction
  * @param inputs - Input stream labels (must be video)
  * @param options - Color adjustment parameters

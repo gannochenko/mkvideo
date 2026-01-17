@@ -11,6 +11,7 @@ import {
   makeScale,
   makePad,
   makeGblur,
+  makeCrop,
 } from './ffmpeg';
 
 type Dimensions = {
@@ -80,6 +81,29 @@ class Stream {
     });
     this.looseEnd = padRes.outputs[0];
     this.buf.append(padRes);
+
+    return this;
+  }
+
+  public coverOutput(dimensions: Dimensions): Stream {
+    // Step 1: Scale video to cover dimensions while maintaining aspect ratio
+    // Using 'force_original_aspect_ratio=increase' ensures the video fills the entire box
+    const scaleRes = makeScale([this.looseEnd], {
+      width: dimensions.width,
+      height: dimensions.height,
+      flags: 'force_original_aspect_ratio=increase',
+    });
+    this.looseEnd = scaleRes.outputs[0];
+    this.buf.append(scaleRes);
+
+    // Step 2: Crop to exact dimensions (centered)
+    const cropRes = makeCrop([this.looseEnd], {
+      width: dimensions.width,
+      height: dimensions.height,
+      // x and y default to '(in_w-out_w)/2' and '(in_h-out_h)/2' which centers the crop
+    });
+    this.looseEnd = cropRes.outputs[0];
+    this.buf.append(cropRes);
 
     return this;
   }
