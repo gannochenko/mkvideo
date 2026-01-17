@@ -430,6 +430,201 @@ export function makePad(
 }
 
 /**
+ * Creates an eq (equalization) filter for color correction
+ * @param inputs - Input stream labels (must be video)
+ * @param options - Color adjustment parameters
+ *   - brightness: -1.0 to 1.0 (default: 0)
+ *   - contrast: -1000 to 1000 (default: 1.0)
+ *   - saturation: 0 to 3 (default: 1.0)
+ *   - gamma: 0.1 to 10 (default: 1.0)
+ */
+export function makeEq(
+  inputs: Label[],
+  options: {
+    brightness?: number;
+    contrast?: number;
+    saturation?: number;
+    gamma?: number;
+  },
+): Filter {
+  const input = inputs[0];
+
+  if (input.isAudio) {
+    throw new Error(
+      `makeEq: input must be video, got audio (tag: ${input.tag})`,
+    );
+  }
+
+  const output = {
+    tag: getLabel(),
+    isAudio: false,
+  };
+
+  const params: string[] = [];
+  if (options.brightness !== undefined)
+    params.push(`brightness=${options.brightness}`);
+  if (options.contrast !== undefined) params.push(`contrast=${options.contrast}`);
+  if (options.saturation !== undefined)
+    params.push(`saturation=${options.saturation}`);
+  if (options.gamma !== undefined) params.push(`gamma=${options.gamma}`);
+
+  const filterStr = params.length > 0 ? `eq=${params.join(':')}` : 'eq';
+
+  return new Filter(inputs, [output], filterStr);
+}
+
+/**
+ * Creates a Gaussian blur filter
+ * @param inputs - Input stream labels (must be video)
+ * @param sigma - Blur strength (0.01 to 1024, default: 1.0)
+ * @param steps - Number of blur steps (1 to 6, default: 1, higher = smoother but slower)
+ */
+export function makeGblur(
+  inputs: Label[],
+  options: {
+    sigma?: number;
+    steps?: number;
+  } = {},
+): Filter {
+  const input = inputs[0];
+
+  if (input.isAudio) {
+    throw new Error(
+      `makeGblur: input must be video, got audio (tag: ${input.tag})`,
+    );
+  }
+
+  const output = {
+    tag: getLabel(),
+    isAudio: false,
+  };
+
+  const sigma = options.sigma ?? 1.0;
+  const steps = options.steps ?? 1;
+
+  return new Filter(inputs, [output], `gblur=sigma=${sigma}:steps=${steps}`);
+}
+
+/**
+ * Creates a box blur filter (simpler, faster blur)
+ * @param inputs - Input stream labels (must be video)
+ * @param options - Blur parameters
+ *   - luma_radius (lr): Horizontal luma blur radius (0 to min(w,h)/2)
+ *   - luma_power (lp): Number of times to apply luma blur (0 to 2)
+ *   - chroma_radius (cr): Horizontal chroma blur radius (0 to min(w,h)/2)
+ *   - chroma_power (cp): Number of times to apply chroma blur (0 to 2)
+ */
+export function makeBoxblur(
+  inputs: Label[],
+  options: {
+    luma_radius?: number;
+    luma_power?: number;
+    chroma_radius?: number;
+    chroma_power?: number;
+  } = {},
+): Filter {
+  const input = inputs[0];
+
+  if (input.isAudio) {
+    throw new Error(
+      `makeBoxblur: input must be video, got audio (tag: ${input.tag})`,
+    );
+  }
+
+  const output = {
+    tag: getLabel(),
+    isAudio: false,
+  };
+
+  const lr = options.luma_radius ?? 2;
+  const lp = options.luma_power ?? 1;
+  const cr = options.chroma_radius ?? lr;
+  const cp = options.chroma_power ?? lp;
+
+  return new Filter(
+    inputs,
+    [output],
+    `boxblur=lr=${lr}:lp=${lp}:cr=${cr}:cp=${cp}`,
+  );
+}
+
+/**
+ * Creates an unsharp filter (sharpen or blur)
+ * @param inputs - Input stream labels (must be video)
+ * @param options - Sharpening parameters
+ *   - luma_amount: Luma sharpening amount (-2 to 5, default: 1.0, negative = blur)
+ *   - chroma_amount: Chroma sharpening amount (-2 to 5, default: 0)
+ */
+export function makeUnsharp(
+  inputs: Label[],
+  options: {
+    luma_amount?: number;
+    chroma_amount?: number;
+  } = {},
+): Filter {
+  const input = inputs[0];
+
+  if (input.isAudio) {
+    throw new Error(
+      `makeUnsharp: input must be video, got audio (tag: ${input.tag})`,
+    );
+  }
+
+  const output = {
+    tag: getLabel(),
+    isAudio: false,
+  };
+
+  const la = options.luma_amount ?? 1.0;
+  const ca = options.chroma_amount ?? 0;
+
+  return new Filter(
+    inputs,
+    [output],
+    `unsharp=luma_amount=${la}:chroma_amount=${ca}`,
+  );
+}
+
+/**
+ * Creates a hue adjustment filter
+ * @param inputs - Input stream labels (must be video)
+ * @param options - Hue adjustment parameters
+ *   - hue: Hue angle in degrees (0 to 360)
+ *   - saturation: Saturation multiplier (-10 to 10, default: 1.0)
+ *   - brightness: Brightness adjustment (-10 to 10, default: 0)
+ */
+export function makeHue(
+  inputs: Label[],
+  options: {
+    hue?: number;
+    saturation?: number;
+    brightness?: number;
+  } = {},
+): Filter {
+  const input = inputs[0];
+
+  if (input.isAudio) {
+    throw new Error(
+      `makeHue: input must be video, got audio (tag: ${input.tag})`,
+    );
+  }
+
+  const output = {
+    tag: getLabel(),
+    isAudio: false,
+  };
+
+  const params: string[] = [];
+  if (options.hue !== undefined) params.push(`h=${options.hue}`);
+  if (options.saturation !== undefined) params.push(`s=${options.saturation}`);
+  if (options.brightness !== undefined) params.push(`b=${options.brightness}`);
+
+  const filterStr = params.length > 0 ? `hue=${params.join(':')}` : 'hue';
+
+  return new Filter(inputs, [output], filterStr);
+}
+
+/**
  * Creates a horizontal flip filter (mirrors video left-right)
  * Note: Only works with video streams
  */

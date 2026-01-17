@@ -10,6 +10,7 @@ import {
   makeVflip,
   makeScale,
   makePad,
+  makeGblur,
 } from './ffmpeg';
 
 type Dimensions = {
@@ -85,6 +86,17 @@ class Stream {
 
   public fps(value: number): Stream {
     const res = makeFps([this.looseEnd], value);
+    this.looseEnd = res.outputs[0];
+
+    this.buf.append(res);
+
+    return this;
+  }
+
+  public blur(strength: number): Stream {
+    const res = makeGblur([this.looseEnd], {
+      sigma: strength,
+    });
     this.looseEnd = res.outputs[0];
 
     this.buf.append(res);

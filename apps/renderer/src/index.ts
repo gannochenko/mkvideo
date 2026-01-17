@@ -24,6 +24,7 @@ async function main() {
     .trim(0, 1)
     .fitOutput({ width: 1920, height: 1080 })
     .fps(30)
+    .blur(100)
     .endTo({
       tag: 'outv',
       isAudio: false,
