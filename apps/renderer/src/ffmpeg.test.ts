@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { makeConcat, makeXFade, type Label } from './ffmpeg';
+import { makeConcat, makeXFade, makeCopy, type Label } from './ffmpeg';
 
 describe('makeConcat', () => {
   describe('basic functionality', () => {
@@ -378,6 +378,81 @@ describe('makeXFade', () => {
       expect(filter.render()).toBe(
         '[v1][v2]xfade=transition=fade:duration=0.25:offset=3.75[xfade]',
       );
+    });
+  });
+});
+
+describe('makeCopy', () => {
+  describe('basic functionality', () => {
+    it('should create copy filter for video stream', () => {
+      const input: Label = { tag: '0:v', isAudio: false };
+
+      const filter = makeCopy(input);
+
+      expect(filter.inputs).toEqual([input]);
+      expect(filter.outputs).toHaveLength(1);
+      expect(filter.outputs[0].isAudio).toBe(false);
+      expect(filter.outputs[0].tag).toBeDefined();
+      expect(filter.render()).toContain('[0:v]copy[');
+      expect(filter.render()).toContain(']');
+    });
+
+    it('should create copy filter for audio stream', () => {
+      const input: Label = { tag: '0:a', isAudio: true };
+
+      const filter = makeCopy(input);
+
+      expect(filter.inputs).toEqual([input]);
+      expect(filter.outputs).toHaveLength(1);
+      expect(filter.outputs[0].isAudio).toBe(true);
+      expect(filter.outputs[0].tag).toBeDefined();
+      expect(filter.render()).toContain('[0:a]copy[');
+      expect(filter.render()).toContain(']');
+    });
+
+    it('should preserve stream type - video remains video', () => {
+      const input: Label = { tag: 'video_in', isAudio: false };
+
+      const filter = makeCopy(input);
+
+      expect(filter.outputs[0].isAudio).toBe(false);
+    });
+
+    it('should preserve stream type - audio remains audio', () => {
+      const input: Label = { tag: 'audio_in', isAudio: true };
+
+      const filter = makeCopy(input);
+
+      expect(filter.outputs[0].isAudio).toBe(true);
+    });
+  });
+
+  describe('various input tags', () => {
+    it('should work with numeric stream notation', () => {
+      const input: Label = { tag: '1:v:0', isAudio: false };
+
+      const filter = makeCopy(input);
+
+      expect(filter.render()).toContain('[1:v:0]copy[');
+      expect(filter.outputs[0].tag).toBeDefined();
+    });
+
+    it('should work with custom label names', () => {
+      const input: Label = { tag: 'my_custom_stream', isAudio: false };
+
+      const filter = makeCopy(input);
+
+      expect(filter.render()).toContain('[my_custom_stream]copy[');
+      expect(filter.outputs[0].tag).toBeDefined();
+    });
+
+    it('should work with labeled streams', () => {
+      const input: Label = { tag: 'xfade', isAudio: false };
+
+      const filter = makeCopy(input);
+
+      expect(filter.render()).toContain('[xfade]copy[');
+      expect(filter.outputs[0].tag).toBeDefined();
     });
   });
 });

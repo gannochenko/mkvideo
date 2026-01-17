@@ -2,7 +2,7 @@ import { parseHTMLFile } from './html-parser.js';
 import { resolve } from 'path';
 import { prepareProject as makeProject } from './project.js';
 import { spawn } from 'child_process';
-import { FilterBuffer, makeStream } from './stream.js';
+import { Direction, FilterBuffer, makeStream } from './stream.js';
 import { makeFFmpegCommand } from './ffmpeg.js';
 
 console.log('Renderer application starting...');
@@ -20,9 +20,9 @@ async function main() {
 
   const buf = new FilterBuffer();
 
-  makeStream(project.getInputLabelByAssetName('clip_02'), buf)
+  makeStream(project.getVideoInputLabelByAssetName('clip_02'), buf)
     .trim(0, 1)
-    .transpose(3)
+    .cwRotate(Direction.CCW)
     .scale({ width: 1920, height: 1080 }, 'cover') // or 'contain'
     .fps(30)
     .endTo({
@@ -30,7 +30,7 @@ async function main() {
       isAudio: false,
     });
 
-  makeStream(project.getInputLabelByAssetName('clip_02'), buf)
+  makeStream(project.getAudioInputLabelByAssetName('clip_02'), buf)
     .trim(0, 1)
     .endTo({
       tag: 'outa',

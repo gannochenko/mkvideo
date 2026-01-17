@@ -6,12 +6,21 @@ import {
   makeFps,
   makeTranspose,
   makeTrim,
+  makeHflip,
+  makeVflip,
 } from './ffmpeg';
 
 type Dimensions = {
   width: number;
   height: number;
 };
+
+export enum Direction {
+  CW,
+  CW2,
+  CCW,
+  CCW2,
+}
 
 export class FilterBuffer {
   private filters: Filter[] = [];
@@ -38,10 +47,6 @@ class Stream {
     fBuf?: FilterBuffer,
   ) {
     this.buf = fBuf ?? new FilterBuffer();
-  }
-
-  public rotate(angle: number): Stream {
-    return this;
   }
 
   public scale(dimensions: Dimensions, way: string): Stream {
@@ -71,6 +76,34 @@ class Stream {
     this.looseEnd = res.outputs[0];
 
     this.buf.append(res);
+
+    return this;
+  }
+
+  public cwRotate(direction: Direction): Stream {
+    switch (direction) {
+      case Direction.CW:
+        // 90° clockwise: transpose=1
+        this.transpose(1);
+        break;
+
+      case Direction.CCW:
+        // 90° counterclockwise: transpose=2
+        this.transpose(2);
+        break;
+
+      case Direction.CW2:
+      case Direction.CCW2:
+        // 180° rotation (same for both directions): hflip + vflip
+        const hflipRes = makeHflip([this.looseEnd]);
+        this.looseEnd = hflipRes.outputs[0];
+        this.buf.append(hflipRes);
+
+        const vflipRes = makeVflip([this.looseEnd]);
+        this.looseEnd = vflipRes.outputs[0];
+        this.buf.append(vflipRes);
+        break;
+    }
 
     return this;
   }

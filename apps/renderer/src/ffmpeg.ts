@@ -299,7 +299,7 @@ export function makeFps(inputs: Label[], fps: number): Filter {
 
 export function makeScale(
   inputs: Label[],
-  options: { width: number | string; height: number | string },
+  options: { width: number | string; height: number | string; algo?: string },
 ): Filter {
   if (inputs.length !== 1) {
     throw new Error(`makeFps: expects one input`);
@@ -317,10 +317,12 @@ export function makeScale(
     isAudio: false,
   };
 
+  const algo = options.algo;
+
   return new Filter(
     inputs,
     [output],
-    `scale=${options.width}:${options.height}`,
+    `scale=${options.width}:${options.height}:flags=setsar=1${algo ? `,${algo}` : ''}`,
   );
 }
 
@@ -382,6 +384,48 @@ export function makeTrim(inputs: Label[], start: number, end: number): Filter {
     [output],
     `${prefix}trim=start=${start}:end=${end},${prefix}setpts=PTS-STARTPTS`,
   );
+}
+
+/**
+ * Creates a horizontal flip filter (mirrors video left-right)
+ * Note: Only works with video streams
+ */
+export function makeHflip(inputs: Label[]): Filter {
+  const input = inputs[0];
+
+  if (input.isAudio) {
+    throw new Error(
+      `makeHflip: input must be video, got audio (tag: ${input.tag})`,
+    );
+  }
+
+  const output = {
+    tag: getLabel(),
+    isAudio: false,
+  };
+
+  return new Filter(inputs, [output], 'hflip');
+}
+
+/**
+ * Creates a vertical flip filter (mirrors video top-bottom)
+ * Note: Only works with video streams
+ */
+export function makeVflip(inputs: Label[]): Filter {
+  const input = inputs[0];
+
+  if (input.isAudio) {
+    throw new Error(
+      `makeVflip: input must be video, got audio (tag: ${input.tag})`,
+    );
+  }
+
+  const output = {
+    tag: getLabel(),
+    isAudio: false,
+  };
+
+  return new Filter(inputs, [output], 'vflip');
 }
 
 /**

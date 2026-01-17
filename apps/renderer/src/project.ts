@@ -45,14 +45,21 @@ export class Project {
     return this.output;
   }
 
-  public getInputLabelByAssetName(name: string): Label {
+  public getVideoInputLabelByAssetName(name: string): Label {
     const assetIndex = this.assetIndexMap.get(name);
-    const asset = this.getAssetByName(name);
-    const isAudio = !!(asset?.type === 'audio');
 
     return {
-      tag: `${assetIndex}:${isAudio ? 'a' : 'v'}`,
-      isAudio,
+      tag: `${assetIndex}:v`,
+      isAudio: false,
+    };
+  }
+
+  public getAudioInputLabelByAssetName(name: string): Label {
+    const assetIndex = this.assetIndexMap.get(name);
+
+    return {
+      tag: `${assetIndex}:a`,
+      isAudio: true,
     };
   }
 }
