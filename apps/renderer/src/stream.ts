@@ -65,7 +65,7 @@ class Stream {
     return this;
   }
 
-  public fitOutput(dimensions: Dimensions): Stream {
+  public fitOutputSimple(dimensions: Dimensions): Stream {
     // Step 1: Scale video to fit within dimensions while maintaining aspect ratio
     // Using 'force_original_aspect_ratio=decrease' ensures the video fits inside the box
     const scaleRes = makeScale([this.looseEnd], {
@@ -118,83 +118,107 @@ class Stream {
    * @param dimensions - Target output dimensions
    * @param options - Effect parameters
    */
-  public fitOutputV2(
+  public fitOutput(
     dimensions: Dimensions,
     options: {
-      ambient: {
+      ambient?: {
         blurStrength?: number; // Gaussian blur sigma (default: 20)
         brightness?: number; // Background brightness reduction (default: -0.3)
         saturation?: number; // Background saturation (default: 0.8)
       };
-    } = {
-      ambient: {},
-    },
+      pillarbox?: {
+        color: string;
+      };
+    } = {},
   ): Stream {
-    const blurStrength = options.ambient.blurStrength ?? 20;
-    const brightness = options.ambient.brightness ?? -0.3;
-    const saturation = options.ambient.saturation ?? 0.8;
+    if (options.ambient) {
+      const blurStrength = options.ambient?.blurStrength ?? 20;
+      const brightness = options.ambient?.brightness ?? -0.3;
+      const saturation = options.ambient?.saturation ?? 0.8;
 
-    // Split input into 2 streams: background and foreground
-    const splitRes = makeSplit([this.looseEnd]);
-    this.buf.append(splitRes);
+      // Split input into 2 streams: background and foreground
+      const splitRes = makeSplit([this.looseEnd]);
+      this.buf.append(splitRes);
 
-    const [bgLabel, fgLabel] = splitRes.outputs;
+      const [bgLabel, fgLabel] = splitRes.outputs;
 
-    // // Background stream: cover + blur + darken
-    const bgScaleRes = makeScale([bgLabel], {
-      width: dimensions.width,
-      height: dimensions.height,
-      flags: 'force_original_aspect_ratio=increase',
-    });
-    this.buf.append(bgScaleRes);
+      // // Background stream: cover + blur + darken
+      const bgScaleRes = makeScale([bgLabel], {
+        width: dimensions.width,
+        height: dimensions.height,
+        flags: 'force_original_aspect_ratio=increase',
+      });
+      this.buf.append(bgScaleRes);
 
-    const bgCropRes = makeCrop(bgScaleRes.outputs, {
-      width: dimensions.width,
-      height: dimensions.height,
-    });
-    this.buf.append(bgCropRes);
+      const bgCropRes = makeCrop(bgScaleRes.outputs, {
+        width: dimensions.width,
+        height: dimensions.height,
+      });
+      this.buf.append(bgCropRes);
 
-    const bgBlurRes = makeGblur(bgCropRes.outputs, {
-      sigma: blurStrength,
-      steps: 2,
-    });
-    this.buf.append(bgBlurRes);
+      const bgBlurRes = makeGblur(bgCropRes.outputs, {
+        sigma: blurStrength,
+        steps: 2,
+      });
+      this.buf.append(bgBlurRes);
 
-    const bgFinal = makeEq(bgBlurRes.outputs, {
-      brightness,
-      saturation,
-    });
-    this.buf.append(bgFinal);
+      const bgFinal = makeEq(bgBlurRes.outputs, {
+        brightness,
+        saturation,
+      });
+      this.buf.append(bgFinal);
 
-    ////////////////////////////////////////////////////////////////////////////////////
+      ////////////////////////////////////////////////////////////////////////////////////
 
-    const fgScale = makeScale([fgLabel], {
-      width: dimensions.width,
-      height: dimensions.height,
-      flags: 'force_original_aspect_ratio=decrease',
-    });
-    this.buf.append(fgScale);
+      const fgScale = makeScale([fgLabel], {
+        width: dimensions.width,
+        height: dimensions.height,
+        flags: 'force_original_aspect_ratio=decrease',
+      });
+      this.buf.append(fgScale);
 
-    // Step 2: Pad to exact dimensions with black bars (centered)
-    const fgFinal = makePad(fgScale.outputs, {
-      width: dimensions.width,
-      height: dimensions.height,
-      color: '#00000000',
-      // x and y default to '(ow-iw)/2' and '(oh-ih)/2' which centers the video
-    });
-    this.buf.append(fgFinal);
+      // Step 2: Pad to exact dimensions with black bars (centered)
+      const fgFinal = makePad(fgScale.outputs, {
+        width: dimensions.width,
+        height: dimensions.height,
+        color: '#00000000', // transparent
+        // x and y default to '(ow-iw)/2' and '(oh-ih)/2' which centers the video
+      });
+      this.buf.append(fgFinal);
 
-    ////////////////////////////////////////////////////////////////////////////////////
+      ////////////////////////////////////////////////////////////////////////////////////
 
-    // Overlay foreground centered on background
-    // (W-w)/2 and (H-h)/2 center the overlay on the background
-    const overlayRes = makeOverlay([bgFinal.outputs[0], fgFinal.outputs[0]], {
-      x: '(W-w)/2',
-      y: '(H-h)/2',
-    });
-    this.buf.append(overlayRes);
+      // Overlay foreground centered on background
+      // (W-w)/2 and (H-h)/2 center the overlay on the background
+      const overlayRes = makeOverlay([bgFinal.outputs[0], fgFinal.outputs[0]], {
+        x: '(W-w)/2',
+        y: '(H-h)/2',
+      });
+      this.buf.append(overlayRes);
 
-    this.looseEnd = overlayRes.outputs[0];
+      this.looseEnd = overlayRes.outputs[0];
+    } else {
+      // usual pillarbox
+      const color = options?.pillarbox?.color ?? '#000000';
+
+      const scaleRes = makeScale([this.looseEnd], {
+        width: dimensions.width,
+        height: dimensions.height,
+        flags: 'force_original_aspect_ratio=decrease',
+      });
+      this.looseEnd = scaleRes.outputs[0];
+      this.buf.append(scaleRes);
+
+      // Step 2: Pad to exact dimensions with black bars (centered)
+      const padRes = makePad([this.looseEnd], {
+        width: dimensions.width,
+        height: dimensions.height,
+        color: color,
+        // x and y default to '(ow-iw)/2' and '(oh-ih)/2' which centers the video
+      });
+      this.looseEnd = padRes.outputs[0];
+      this.buf.append(padRes);
+    }
 
     return this;
   }
