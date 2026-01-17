@@ -141,24 +141,24 @@ class Stream {
     // const [bgStream, fgStream] = splitRes.outputs;
 
     // // Background stream: cover + blur + darken
-    // const bgScaleRes = makeScale([bgStream], {
-    //   width: dimensions.width,
-    //   height: dimensions.height,
-    //   flags: 'force_original_aspect_ratio=increase',
-    // });
-    // this.buf.append(bgScaleRes);
+    const bgScaleRes = makeScale([this.looseEnd], {
+      width: dimensions.width,
+      height: dimensions.height,
+      flags: 'force_original_aspect_ratio=increase',
+    });
+    this.buf.append(bgScaleRes);
 
-    // const bgCropRes = makeCrop([bgScaleRes.outputs[0]], {
-    //   width: dimensions.width,
-    //   height: dimensions.height,
-    // });
-    // this.buf.append(bgCropRes);
+    const bgCropRes = makeCrop(bgScaleRes.outputs, {
+      width: dimensions.width,
+      height: dimensions.height,
+    });
+    this.buf.append(bgCropRes);
 
-    // const bgBlurRes = makeGblur([bgCropRes.outputs[0]], {
-    //   sigma: blurStrength,
-    //   steps: 2,
-    // });
-    // this.buf.append(bgBlurRes);
+    const bgBlurRes = makeGblur(bgCropRes.outputs, {
+      sigma: blurStrength,
+      steps: 2,
+    });
+    this.buf.append(bgBlurRes);
 
     // const bgEqRes = makeEq([bgBlurRes.outputs[0]], {
     //   brightness,
@@ -168,21 +168,21 @@ class Stream {
 
     ////////////////////////////////////////////////////////////////////////////////////
 
-    const fgScale = makeScale([this.looseEnd], {
-      width: dimensions.width,
-      height: dimensions.height,
-      flags: 'force_original_aspect_ratio=decrease',
-    });
-    this.buf.append(fgScale);
+    // const fgScale = makeScale([this.looseEnd], {
+    //   width: dimensions.width,
+    //   height: dimensions.height,
+    //   flags: 'force_original_aspect_ratio=decrease',
+    // });
+    // this.buf.append(fgScale);
 
-    // Step 2: Pad to exact dimensions with black bars (centered)
-    const fgPad = makePad(fgScale.outputs, {
-      width: dimensions.width,
-      height: dimensions.height,
-      color: '#ffffff',
-      // x and y default to '(ow-iw)/2' and '(oh-ih)/2' which centers the video
-    });
-    this.buf.append(fgPad);
+    // // Step 2: Pad to exact dimensions with black bars (centered)
+    // const fgPad = makePad(fgScale.outputs, {
+    //   width: dimensions.width,
+    //   height: dimensions.height,
+    //   color: '#ffffff',
+    //   // x and y default to '(ow-iw)/2' and '(oh-ih)/2' which centers the video
+    // });
+    // this.buf.append(fgPad);
 
     ////////////////////////////////////////////////////////////////////////////////////
 
@@ -194,7 +194,7 @@ class Stream {
     // });
     // this.buf.append(overlayRes);
 
-    this.looseEnd = fgPad.outputs[0];
+    this.looseEnd = bgBlurRes.outputs[0];
 
     return this;
   }
