@@ -31,7 +31,12 @@ async function main() {
     buf,
   )
     .trim(0, 1)
-    .fps(30);
+    .fitOutputContain({ width: 1920, height: 1080 })
+    .fps(30)
+    .chromakey({
+      blend: ChromakeyBlend.Smooth,
+      color: '#000000',
+    });
 
   // .chromakey({
   //   blend: ChromakeyBlend.Smooth,
@@ -44,23 +49,24 @@ async function main() {
 
   makeStream(project.getVideoInputLabelByAssetName('clip_01'), buf)
     .trim(0, 1)
-    // .fitOutput(
-    //   {
-    //     width: 1920,
-    //     height: 1080,
-    //   },
-    //   {
-    //     ambient: {
-    //       blurStrength: 25,
-    //       brightness: -0.1,
-    //       saturation: 0.7,
-    //     },
-    //     pillarbox: {
-    //       color: '#ff0000',
-    //     },
-    //   },
-    // )
-    .fps(30)
+    .fitOutputContain(
+      // fitting is required
+      {
+        width: 1920,
+        height: 1080,
+      },
+      {
+        ambient: {
+          blurStrength: 25,
+          brightness: -0.1,
+          saturation: 0.7,
+        },
+        pillarbox: {
+          color: '#ff0000',
+        },
+      },
+    )
+    .fps(30) // fps normalization is required
     .concatStreams([glitchStream])
     .endTo({
       tag: 'outv',

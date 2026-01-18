@@ -104,7 +104,7 @@ class Stream {
     return this;
   }
 
-  public coverOutput(dimensions: Dimensions): Stream {
+  public fitOutputCover(dimensions: Dimensions): Stream {
     // Step 1: Scale video to cover dimensions while maintaining aspect ratio
     // Using 'force_original_aspect_ratio=increase' ensures the video fills the entire box
     const scaleRes = makeScale([this.looseEnd], {
@@ -127,7 +127,7 @@ class Stream {
     return this;
   }
 
-  public fitOutput(
+  public fitOutputContain(
     dimensions: Dimensions,
     options: {
       ambient?: {
