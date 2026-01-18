@@ -400,6 +400,62 @@ export function makeTrim(inputs: Label[], start: number, end: number): Filter {
 }
 
 /**
+ * Creates a tpad/apad filter to add temporal padding (frames/silence)
+ * @param inputs - Input stream labels (video or audio)
+ * @param options - Padding parameters
+ *   - start: Duration to add at the beginning (in seconds, default: 0)
+ *   - stop: Duration to add at the end (in seconds, default: 0)
+ *   - start_mode: 'clone' (duplicate frames) or 'add' (black frames/silence, default)
+ *   - stop_mode: 'clone' (duplicate frames) or 'add' (black frames/silence, default)
+ */
+export function makeTPad(
+  inputs: Label[],
+  options: {
+    start?: number;
+    stop?: number;
+    start_mode?: 'clone' | 'add';
+    stop_mode?: 'clone' | 'add';
+  } = {},
+): Filter {
+  const input = inputs[0];
+
+  const output = {
+    tag: getLabel(),
+    isAudio: input.isAudio,
+  };
+
+  const start = options.start ?? 0;
+  const stop = options.stop ?? 0;
+  const start_mode = options.start_mode ?? 'add';
+  const stop_mode = options.stop_mode ?? 'add';
+
+  const filterName = input.isAudio ? 'apad' : 'tpad';
+
+  if (input.isAudio) {
+    // apad has simpler syntax: pad_len (samples) or pad_dur (seconds)
+    const params: string[] = [];
+    if (stop > 0) {
+      params.push(`pad_dur=${stop}`);
+    }
+    const filterParams = params.length > 0 ? `=${params.join(':')}` : '';
+    return new Filter(inputs, [output], `${filterName}${filterParams}`);
+  } else {
+    // tpad for video
+    const params: string[] = [];
+    if (start > 0) {
+      params.push(`start_duration=${start}`);
+      params.push(`start_mode=${start_mode}`);
+    }
+    if (stop > 0) {
+      params.push(`stop_duration=${stop}`);
+      params.push(`stop_mode=${stop_mode}`);
+    }
+    const filterParams = params.length > 0 ? `=${params.join(':')}` : '';
+    return new Filter(inputs, [output], `${filterName}${filterParams}`);
+  }
+}
+
+/**
  * Creates a pad filter to add borders/letterboxing
  * @param inputs - Input stream labels (must be video)
  * @param width - Output width (can be expression like 'iw' or number)

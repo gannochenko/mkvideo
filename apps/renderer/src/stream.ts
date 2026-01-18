@@ -321,7 +321,14 @@ class Stream {
       );
     }
 
-    console.log(res.outputs);
+    this.buf.append(res);
+
+    return this;
+  }
+
+  public overlayStream(stream: Stream): Stream {
+    const res = makeOverlay([this.looseEnd, stream.getLooseEnd()]);
+    this.looseEnd = res.outputs[0];
 
     this.buf.append(res);
 

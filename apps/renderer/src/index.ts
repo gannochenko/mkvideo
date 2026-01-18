@@ -4,6 +4,7 @@ import { prepareProject as makeProject } from './project.js';
 import { spawn } from 'child_process';
 import {
   ChromakeyBlend,
+  ChromakeySimilarity,
   concatStreams,
   Direction,
   FilterBuffer,
@@ -35,22 +36,13 @@ async function main() {
     .fps(30)
     .chromakey({
       blend: ChromakeyBlend.Smooth,
+      similarity: ChromakeySimilarity.Strict,
       color: '#000000',
     });
-
-  // .chromakey({
-  //   blend: ChromakeyBlend.Smooth,
-  //   color: '#000000',
-  // });
-  // .endTo({
-  //   tag: 'outv',
-  //   isAudio: false,
-  // });
 
   makeStream(project.getVideoInputLabelByAssetName('clip_01'), buf)
     .trim(0, 1)
     .fitOutputContain(
-      // fitting is required
       {
         width: 1920,
         height: 1080,
@@ -66,8 +58,8 @@ async function main() {
         },
       },
     )
-    .fps(30) // fps normalization is required
-    .concatStreams([glitchStream])
+    .fps(30)
+    .overlayStream(glitchStream)
     .endTo({
       tag: 'outv',
       isAudio: false,
