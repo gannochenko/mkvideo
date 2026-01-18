@@ -721,6 +721,85 @@ export function makeVflip(inputs: Label[]): Filter {
 }
 
 /**
+ * Creates a chromakey filter for green/blue screen removal
+ * @param inputs - Input stream labels (must be video)
+ * @param options - Chromakey parameters
+ *   - color: Color to key out (e.g., 'green', '0x00FF00', '#00FF00')
+ *   - similarity: How similar colors need to be to match (0.01 to 1.0, default: 0.01)
+ *   - blend: Blend percentage for edges (0.0 to 1.0, default: 0.0)
+ */
+export function makeChromakey(
+  inputs: Label[],
+  options: {
+    color: string;
+    similarity?: number;
+    blend?: number;
+  },
+): Filter {
+  const input = inputs[0];
+
+  if (input.isAudio) {
+    throw new Error(
+      `makeChromakey: input must be video, got audio (tag: ${input.tag})`,
+    );
+  }
+
+  const output = {
+    tag: getLabel(),
+    isAudio: false,
+  };
+
+  const similarity = options.similarity ?? 0.01;
+  const blend = options.blend ?? 0.0;
+
+  return new Filter(
+    inputs,
+    [output],
+    `chromakey=${options.color}:${similarity}:${blend}`,
+  );
+}
+
+/**
+ * Creates a despill filter to remove color spill from chromakey
+ * @param inputs - Input stream labels (must be video)
+ * @param options - Despill parameters
+ *   - type: Color to despill ('green' or 'blue', default: 'green')
+ *   - mix: Mix factor (0.0 to 1.0, default: 0.5)
+ *   - expand: Expand factor (0.0 to 1.0, default: 0.0)
+ */
+export function makeDespill(
+  inputs: Label[],
+  options: {
+    type?: 'green' | 'blue';
+    mix?: number;
+    expand?: number;
+  } = {},
+): Filter {
+  const input = inputs[0];
+
+  if (input.isAudio) {
+    throw new Error(
+      `makeDespill: input must be video, got audio (tag: ${input.tag})`,
+    );
+  }
+
+  const output = {
+    tag: getLabel(),
+    isAudio: false,
+  };
+
+  const type = options.type ?? 'green';
+  const mix = options.mix ?? 0.5;
+  const expand = options.expand ?? 0.0;
+
+  return new Filter(
+    inputs,
+    [output],
+    `despill=type=${type}:mix=${mix}:expand=${expand}`,
+  );
+}
+
+/**
  * Wraps a label in brackets
  */
 function wrap(label: string): string {

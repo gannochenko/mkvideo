@@ -2,7 +2,13 @@ import { parseHTMLFile } from './html-parser.js';
 import { resolve } from 'path';
 import { prepareProject as makeProject } from './project.js';
 import { spawn } from 'child_process';
-import { Direction, FilterBuffer, makeStream } from './stream.js';
+import {
+  ChromakeyBlend,
+  concatStreams,
+  Direction,
+  FilterBuffer,
+  makeStream,
+} from './stream.js';
 import { makeFFmpegCommand } from './ffmpeg.js';
 
 console.log('Renderer application starting...');
@@ -20,32 +26,48 @@ async function main() {
 
   const buf = new FilterBuffer();
 
-  makeStream(project.getVideoInputLabelByAssetName('clip_02'), buf)
+  const glitchStream = makeStream(
+    project.getVideoInputLabelByAssetName('glitch'),
+    buf,
+  )
     .trim(0, 1)
-    // .cwRotate(Direction.CCW) // Apply -90° rotation (counter-clockwise)
-    .fitOutput(
-      {
-        width: 1920,
-        height: 1080,
-      },
-      {
-        ambient: {
-          blurStrength: 25,
-          brightness: -0.1,
-          saturation: 0.7,
-        },
-        pillarbox: {
-          color: '#ff0000',
-        },
-      },
-    )
+    .fps(30);
+
+  // .chromakey({
+  //   blend: ChromakeyBlend.Smooth,
+  //   color: '#000000',
+  // });
+  // .endTo({
+  //   tag: 'outv',
+  //   isAudio: false,
+  // });
+
+  makeStream(project.getVideoInputLabelByAssetName('clip_01'), buf)
+    .trim(0, 1)
+    // .fitOutput(
+    //   {
+    //     width: 1920,
+    //     height: 1080,
+    //   },
+    //   {
+    //     ambient: {
+    //       blurStrength: 25,
+    //       brightness: -0.1,
+    //       saturation: 0.7,
+    //     },
+    //     pillarbox: {
+    //       color: '#ff0000',
+    //     },
+    //   },
+    // )
     .fps(30)
+    .concatStreams([glitchStream])
     .endTo({
       tag: 'outv',
       isAudio: false,
     });
 
-  makeStream(project.getAudioInputLabelByAssetName('clip_02'), buf)
+  makeStream(project.getAudioInputLabelByAssetName('clip_01'), buf)
     .trim(0, 1)
     .endTo({
       tag: 'outa',

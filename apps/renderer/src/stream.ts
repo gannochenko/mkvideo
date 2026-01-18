@@ -15,7 +15,10 @@ import {
   makeSplit,
   makeOverlay,
   makeEq,
+  makeChromakey,
+  makeConcat,
 } from './ffmpeg';
+import { getLabel } from './label-generator';
 
 type Dimensions = {
   width: number;
@@ -27,6 +30,19 @@ export enum Direction {
   CW2,
   CCW,
   CCW2,
+}
+
+export enum ChromakeySimilarity {
+  Strict = 0.1,
+  Good = 0.3,
+  Forgiving = 0.5,
+  Loose = 0.7,
+}
+
+export enum ChromakeyBlend {
+  Hard = 0.0,
+  Smooth = 0.1,
+  Soft = 0.2,
 }
 
 export class FilterBuffer {
@@ -111,13 +127,6 @@ class Stream {
     return this;
   }
 
-  /**
-   * Creates the "blurred background" effect:
-   * - Background: blurred + darkened version that covers the entire output
-   * - Foreground: original video fitted with aspect ratio preserved
-   * @param dimensions - Target output dimensions
-   * @param options - Effect parameters
-   */
   public fitOutput(
     dimensions: Dimensions,
     options: {
@@ -223,6 +232,23 @@ class Stream {
     return this;
   }
 
+  public chromakey(parameters: {
+    color: string;
+    similarity?: number | ChromakeySimilarity;
+    blend?: number | ChromakeyBlend;
+  }): Stream {
+    // Apply chromakey filter
+    const chromakeyRes = makeChromakey([this.looseEnd], {
+      color: parameters.color,
+      similarity: parameters.similarity,
+      blend: parameters.blend,
+    });
+    this.looseEnd = chromakeyRes.outputs[0];
+    this.buf.append(chromakeyRes);
+
+    return this;
+  }
+
   public fps(value: number): Stream {
     const res = makeFps([this.looseEnd], value);
     this.looseEnd = res.outputs[0];
@@ -280,6 +306,28 @@ class Stream {
     return this;
   }
 
+  public concatStreams(streams: Stream[]): Stream {
+    // todo: check streams type here
+
+    const res = makeConcat([
+      this.looseEnd,
+      ...streams.map((st) => st.getLooseEnd()),
+    ]);
+    this.looseEnd = res.outputs[0];
+
+    if (res.outputs.length > 1) {
+      throw new Error(
+        'concat produced several outputs, possible mixup between video and audio streams',
+      );
+    }
+
+    console.log(res.outputs);
+
+    this.buf.append(res);
+
+    return this;
+  }
+
   public endTo(label: Label): Stream {
     const res = makeNull([this.looseEnd]);
     res.outputs[0] = label;
@@ -287,6 +335,10 @@ class Stream {
     this.finished = true;
 
     return this;
+  }
+
+  public getLooseEnd(): Label {
+    return this.looseEnd;
   }
 
   public render(): string {
