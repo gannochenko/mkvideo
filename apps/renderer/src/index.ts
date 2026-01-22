@@ -58,12 +58,12 @@ async function main() {
     )
     .fps(30)
     .overlayStream(glitchStream, {
-      // flipLayers: true,
-      // offset: {
-      //   duration: 5, // value from trim()
-      //   otherStreamDuration: 2, // value from trim() of glitch
-      //   otherStreamOffsetLeft: -1, // how much they overlay
-      // },
+      flipLayers: true,
+      offset: {
+        duration: 5, // value from trim()
+        otherStreamDuration: 2, // value from trim() of glitch
+        otherStreamOffsetLeft: 4, // padding of the glitch
+      },
     })
     .endTo({
       tag: 'outv',

@@ -362,11 +362,11 @@ class Stream {
       };
     },
   ): Stream {
-    const overlay = options.offset;
+    const offset = options.offset;
     const flip = !!options.flipLayers;
 
-    if (!overlay) {
-      // usual overlay
+    if (!offset || !offset.otherStreamOffsetLeft) {
+      // usual overlay, no offset
       const res = makeOverlay(
         flip
           ? [stream.getLooseEnd(), this.looseEnd]
@@ -376,45 +376,67 @@ class Stream {
 
       this.buf.append(res);
     } else {
-      if (overlay.duration === undefined) {
+      if (offset.duration === undefined) {
         throw new Error(
           'exact duration of the fragment in the stream must be provided',
         );
       }
-      if (overlay.otherStreamDuration === undefined) {
+      if (offset.otherStreamDuration === undefined) {
         throw new Error(
           'exact duration of the fragment in the joining stream must be provided',
         );
       }
 
-      const offset = overlay.otherStreamOffsetLeft;
+      const offsetLeft = offset.otherStreamOffsetLeft;
 
-      if (offset < 0) {
-        if (-offset >= overlay.duration) {
-          throw new Error('offset cannot be bigger than the duration');
-        }
-
-        const delta = overlay.duration + offset;
-
+      if (offsetLeft > 0) {
         stream.tPad({
-          start: delta,
+          start: offsetLeft,
           color: Colors.Transparent,
         });
 
-        // const overlayRes = makeOverlay([this.looseEnd, stream.getLooseEnd()]);
-        const overlayRes = makeOverlay([stream.getLooseEnd(), this.looseEnd]);
+        // padding the main stream on the right, so the video is not interrupted when it ends
+        const mainLeftover =
+          offset.otherStreamDuration + offsetLeft - offset.duration;
+        if (mainLeftover > 0) {
+          this.tPad({
+            stop: mainLeftover,
+            color: Colors.Transparent,
+          });
+        }
+
+        const overlayRes = makeOverlay(
+          flip
+            ? [stream.getLooseEnd(), this.looseEnd]
+            : [this.looseEnd, stream.getLooseEnd()],
+        );
         this.looseEnd = overlayRes.outputs[0];
 
         this.buf.append(overlayRes);
-      } else if (offset > 0) {
+      } else if (offsetLeft > 0) {
         throw new Error('positive offset is not supported for overlayStream');
-      } else {
-        // offset === 0: joining stream starts right after base stream ends
-        // Just overlay directly
-        const res = makeOverlay([this.looseEnd, stream.getLooseEnd()]);
-        this.looseEnd = res.outputs[0];
-        this.buf.append(res);
       }
+
+      // if (offsetLeft < 0) {
+      //   if (-offsetLeft >= offset.duration) {
+      //     throw new Error('offset cannot be bigger than the duration');
+      //   }
+
+      //   const delta = offset.duration + offsetLeft;
+
+      //   stream.tPad({
+      //     start: delta,
+      //     color: Colors.Transparent,
+      //   });
+
+      //   // const overlayRes = makeOverlay([this.looseEnd, stream.getLooseEnd()]);
+      //   const overlayRes = makeOverlay([stream.getLooseEnd(), this.looseEnd]);
+      //   this.looseEnd = overlayRes.outputs[0];
+
+      //   this.buf.append(overlayRes);
+      // } else if (offsetLeft > 0) {
+      //   throw new Error('positive offset is not supported for overlayStream');
+      // }
     }
 
     return this;

@@ -287,7 +287,11 @@ export function makeOverlay(
     overlayParams = `x=${x}:y=${y}:format=auto`;
   }
 
-  return new Filter(inputs, [output], `overlay=${overlayParams}`);
+  return new Filter(
+    inputs,
+    [output],
+    `overlay=${overlayParams}:eof_action=pass`,
+  );
 }
 
 export function makeFps(inputs: Label[], fps: number): Filter {
@@ -454,7 +458,10 @@ export function makeTPad(
       params.push(`stop_mode=${stop_mode}`);
     }
     // Add color parameter for added frames (when mode is 'add')
-    if ((start_mode === 'add' && start > 0) || (stop_mode === 'add' && stop > 0)) {
+    if (
+      (start_mode === 'add' && start > 0) ||
+      (stop_mode === 'add' && stop > 0)
+    ) {
       params.push(`color=${color}`);
     }
     const filterParams = params.length > 0 ? `=${params.join(':')}` : '';
@@ -580,7 +587,8 @@ export function makeEq(
   const params: string[] = [];
   if (options.brightness !== undefined)
     params.push(`brightness=${options.brightness}`);
-  if (options.contrast !== undefined) params.push(`contrast=${options.contrast}`);
+  if (options.contrast !== undefined)
+    params.push(`contrast=${options.contrast}`);
   if (options.saturation !== undefined)
     params.push(`saturation=${options.saturation}`);
   if (options.gamma !== undefined) params.push(`gamma=${options.gamma}`);
