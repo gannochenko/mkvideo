@@ -27,17 +27,19 @@ export type Asset = {
 
 export type Fragment = {
   assetName: string;
-  duration: number; // calculated, in ms (can come from CSS or from the asset's duration)
-  overlayLeft: number; // amount of ms to overlay with the previous fragment (normalized from margin-left + prev margin-right)
-  // probably don't need it:
-  blendModeLeft: string; // how to blend with the previous fragment (normalized from -blend-mode-left + prev -blend-mode-right)
+  duration: number; // calculated, in seconds (can come from CSS or from the asset's duration)
+  trimStart: number; // in seconds
+  overlayLeft: number; // amount of seconds to overlay with the previous fragment (normalized from margin-left + prev margin-right)
   transitionIn: string; // how to transition into the fragment
   transitionInDuration: number; // how long the transition in lasts
   transitionOut: string; // how to transition out of the fragment
   transitionOutDuration: number; // how long the transition out lasts
-  zIndex: number; // order of layering
   objectFit: 'cover' | 'contain';
   objectFitContain: 'ambient' | 'pillarbox';
+
+  // probably don't need it:
+  zIndex: number; // order of layering
+  blendModeLeft: string; // how to blend with the previous fragment (normalized from -blend-mode-left + prev -blend-mode-right)
 };
 
 export type SequenceDefinition = {

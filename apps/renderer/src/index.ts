@@ -1,6 +1,6 @@
-import { parseHTMLFile } from './html-parser.js';
+import { HTMLParser } from './html-parser.js';
 import { resolve } from 'path';
-import { parseHTMLDefinition as makeProject, Project } from './project.js';
+import { HTMLProjectParser, Project } from './project.js';
 import { spawn } from 'child_process';
 import {
   ChromakeyBlend,
@@ -19,10 +19,13 @@ async function main() {
   // Parse the demo project HTML file
   const projectPath = resolve(__dirname, '../../../examples/demo/project.html');
 
-  const project = await makeProject(
-    await parseHTMLFile(projectPath),
-    projectPath,
-  );
+  // parsing HTML into AST
+  const htmlParser = new HTMLParser();
+  const htmlAST = await htmlParser.parseFile(projectPath);
+
+  // converting AST to the Project
+  const parser = new HTMLProjectParser(htmlAST, projectPath);
+  const project = await parser.parse();
 
   const buf = new FilterBuffer();
 
@@ -32,7 +35,18 @@ async function main() {
       fragments: [
         {
           assetName: 'clip_01',
-          duration: '100%',
+          duration: 5,
+          trimStart: 1,
+          overlayLeft: 0,
+          transitionIn: '',
+          transitionInDuration: 0,
+          transitionOut: '',
+          transitionOutDuration: 0,
+          objectFit: 'contain',
+          objectFitContain: 'pillarbox',
+
+          zIndex: 0,
+          blendModeLeft: '',
         },
       ],
     },
@@ -78,7 +92,7 @@ async function main() {
       process.stdout.write('\n');
       if (code === 0) {
         console.log('\n=== Render Complete ===');
-        console.log(`Output file: ${project.output.path}`);
+        console.log(`Output file: ${project.getOutput().path}`);
         resolve();
       } else {
         console.error(`\n=== Render Failed ===`);

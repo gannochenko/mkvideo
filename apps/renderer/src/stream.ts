@@ -463,7 +463,6 @@ export class Stream {
     const res = makeNull([this.looseEnd]);
     res.outputs[0] = label;
     this.buf.append(res);
-    this.finished = true;
 
     return this;
   }

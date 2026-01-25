@@ -12,145 +12,147 @@ export interface EnhancedElement extends Element {
   computedStyles?: CSSProperties;
 }
 
-/**
- * Parses an HTML file into an AST with computed CSS using parse5 and css-tree
- * @param filePath - Absolute or relative path to the HTML file
- * @returns Promise resolving to the parsed project with AST and computed styles
- */
-export async function parseHTMLFile(filePath: string): Promise<ParsedHtml> {
-  const content = await readFile(filePath, 'utf-8');
-  return parseHTML(content);
-}
-
-/**
- * Parses HTML string into an AST with computed CSS
- * @param html - HTML string to parse
- * @returns The parsed project with AST and computed styles
- */
-export function parseHTML(html: string): ParsedHtml {
-  const ast = parse(html);
-  const cssText = extractCSS(ast);
-  const cssRules = csstree.parse(cssText);
-  const elements = new Map<Element, CSSProperties>();
-
-  // Build the CSS rule map
-  const styleRules = buildStyleRules(cssRules);
-
-  // Apply styles to all elements
-  traverseAndApplyStyles(ast, styleRules, elements);
-
-  return { ast, css: elements };
-}
-
-/**
- * Extracts CSS text from <style> elements in the document
- */
-function extractCSS(ast: Document): string {
-  const styleElements = findElementsByTagName(ast, 'style');
-  return styleElements.map((el) => getTextContent(el)).join('\n');
-}
-
 interface StyleRule {
   selector: string;
   properties: CSSProperties;
 }
 
-/**
- * Builds a map of CSS rules from the parsed CSS AST
- */
-function buildStyleRules(cssAst: csstree.CssNode): StyleRule[] {
-  const rules: StyleRule[] = [];
-
-  csstree.walk(cssAst, {
-    visit: 'Rule',
-    enter(node) {
-      const rule = node as csstree.Rule;
-      const selector = csstree.generate(rule.prelude);
-      const properties: CSSProperties = {};
-
-      csstree.walk(rule.block, {
-        visit: 'Declaration',
-        enter(declNode) {
-          const decl = declNode as csstree.Declaration;
-          const property = decl.property;
-          const value = csstree.generate(decl.value);
-          properties[property] = value;
-        },
-      });
-
-      rules.push({ selector, properties });
-    },
-  });
-
-  return rules;
-}
-
-/**
- * Gets the class attribute value from an element
- */
-function getClassNames(element: Element): string[] {
-  const classAttr = element.attrs.find((attr) => attr.name === 'class');
-  return classAttr ? classAttr.value.split(/\s+/).filter(Boolean) : [];
-}
-
-/**
- * Checks if an element matches a CSS selector (simplified implementation)
- */
-function matchesSelector(element: Element, selector: string): boolean {
-  const trimmedSelector = selector.trim();
-
-  // Class selector
-  if (trimmedSelector.startsWith('.')) {
-    const className = trimmedSelector.slice(1);
-    return getClassNames(element).includes(className);
+export class HTMLParser {
+  /**
+   * Parses an HTML file into an AST with computed CSS using parse5 and css-tree
+   * @param filePath - Absolute or relative path to the HTML file
+   * @returns Promise resolving to the parsed project with AST and computed styles
+   */
+  public async parseFile(filePath: string): Promise<ParsedHtml> {
+    const content = await readFile(filePath, 'utf-8');
+    return this.parse(content);
   }
 
-  // Tag selector
-  if (/^[a-z]+$/i.test(trimmedSelector)) {
-    return element.tagName === trimmedSelector;
+  /**
+   * Parses HTML string into an AST with computed CSS
+   * @param html - HTML string to parse
+   * @returns The parsed project with AST and computed styles
+   */
+  public parse(html: string): ParsedHtml {
+    const ast = parse(html);
+    const cssText = this.extractCSS(ast);
+    const cssRules = csstree.parse(cssText);
+    const elements = new Map<Element, CSSProperties>();
+
+    // Build the CSS rule map
+    const styleRules = this.buildStyleRules(cssRules);
+
+    // Apply styles to all elements
+    this.traverseAndApplyStyles(ast, styleRules, elements);
+
+    return { ast, css: elements };
   }
 
-  // ID selector (basic support)
-  if (trimmedSelector.startsWith('#')) {
-    const id = trimmedSelector.slice(1);
-    const idAttr = element.attrs.find((attr) => attr.name === 'id');
-    return idAttr?.value === id;
+  /**
+   * Extracts CSS text from <style> elements in the document
+   */
+  private extractCSS(ast: Document): string {
+    const styleElements = findElementsByTagName(ast, 'style');
+    return styleElements.map((el) => getTextContent(el)).join('\n');
   }
 
-  return false;
-}
+  /**
+   * Builds a map of CSS rules from the parsed CSS AST
+   */
+  private buildStyleRules(cssAst: csstree.CssNode): StyleRule[] {
+    const rules: StyleRule[] = [];
 
-/**
- * Applies CSS rules to all elements in the AST
- */
-function traverseAndApplyStyles(
-  node: ASTNode,
-  styleRules: StyleRule[],
-  elementsMap: Map<Element, CSSProperties>,
-) {
-  function traverse(currentNode: ASTNode) {
-    if ('tagName' in currentNode) {
-      const element = currentNode as Element;
-      const computedStyles: CSSProperties = {};
+    csstree.walk(cssAst, {
+      visit: 'Rule',
+      enter: (node) => {
+        const rule = node as csstree.Rule;
+        const selector = csstree.generate(rule.prelude);
+        const properties: CSSProperties = {};
 
-      // Apply matching rules
-      for (const rule of styleRules) {
-        if (matchesSelector(element, rule.selector)) {
-          Object.assign(computedStyles, rule.properties);
+        csstree.walk(rule.block, {
+          visit: 'Declaration',
+          enter: (declNode) => {
+            const decl = declNode as csstree.Declaration;
+            const property = decl.property;
+            const value = csstree.generate(decl.value);
+            properties[property] = value;
+          },
+        });
+
+        rules.push({ selector, properties });
+      },
+    });
+
+    return rules;
+  }
+
+  /**
+   * Gets the class attribute value from an element
+   */
+  private getClassNames(element: Element): string[] {
+    const classAttr = element.attrs.find((attr) => attr.name === 'class');
+    return classAttr ? classAttr.value.split(/\s+/).filter(Boolean) : [];
+  }
+
+  /**
+   * Checks if an element matches a CSS selector (simplified implementation)
+   */
+  private matchesSelector(element: Element, selector: string): boolean {
+    const trimmedSelector = selector.trim();
+
+    // Class selector
+    if (trimmedSelector.startsWith('.')) {
+      const className = trimmedSelector.slice(1);
+      return this.getClassNames(element).includes(className);
+    }
+
+    // Tag selector
+    if (/^[a-z]+$/i.test(trimmedSelector)) {
+      return element.tagName === trimmedSelector;
+    }
+
+    // ID selector (basic support)
+    if (trimmedSelector.startsWith('#')) {
+      const id = trimmedSelector.slice(1);
+      const idAttr = element.attrs.find((attr) => attr.name === 'id');
+      return idAttr?.value === id;
+    }
+
+    return false;
+  }
+
+  /**
+   * Applies CSS rules to all elements in the AST
+   */
+  private traverseAndApplyStyles(
+    node: ASTNode,
+    styleRules: StyleRule[],
+    elementsMap: Map<Element, CSSProperties>,
+  ): void {
+    const traverse = (currentNode: ASTNode) => {
+      if ('tagName' in currentNode) {
+        const element = currentNode as Element;
+        const computedStyles: CSSProperties = {};
+
+        // Apply matching rules
+        for (const rule of styleRules) {
+          if (this.matchesSelector(element, rule.selector)) {
+            Object.assign(computedStyles, rule.properties);
+          }
+        }
+
+        elementsMap.set(element, computedStyles);
+      }
+
+      if ('childNodes' in currentNode && currentNode.childNodes) {
+        for (const child of currentNode.childNodes) {
+          traverse(child);
         }
       }
+    };
 
-      elementsMap.set(element, computedStyles);
-    }
-
-    if ('childNodes' in currentNode && currentNode.childNodes) {
-      for (const child of currentNode.childNodes) {
-        traverse(child);
-      }
-    }
+    traverse(node);
   }
-
-  traverse(node);
 }
 
 /**
@@ -205,15 +207,15 @@ export function getTextContent(node: ASTNode): string {
   return text;
 }
 
-/**
- * Helper to get computed styles for an element
- * @param element - Element to get styles for
- * @param elementsMap - Map of elements to their computed styles
- * @returns Computed styles for the element
- */
-export function getComputedStyles(
-  element: Element,
-  elementsMap: Map<Element, CSSProperties>,
-): CSSProperties {
-  return elementsMap.get(element) || {};
-}
+// /**
+//  * Helper to get computed styles for an element
+//  * @param element - Element to get styles for
+//  * @param elementsMap - Map of elements to their computed styles
+//  * @returns Computed styles for the element
+//  */
+// export function getComputedStyles(
+//   element: Element,
+//   elementsMap: Map<Element, CSSProperties>,
+// ): CSSProperties {
+//   return elementsMap.get(element) || {};
+// }
