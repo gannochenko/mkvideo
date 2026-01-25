@@ -1,11 +1,10 @@
 import {
   ParsedHtml,
-  ProjectStructure,
   Asset,
   Output,
   Element,
   ASTNode,
-  Sequence,
+  SequenceDefinition,
   Fragment,
 } from './type';
 import { execFile } from 'child_process';
@@ -15,14 +14,10 @@ import { Label } from './ffmpeg';
 
 const execFileAsync = promisify(execFile);
 
-export class Project {
+export class AssetManager {
   private assetIndexMap: Map<string, number> = new Map();
 
-  constructor(
-    private sequences: Sequence[],
-    private assets: Asset[],
-    private output: Output,
-  ) {
+  constructor(private assets: Asset[]) {
     let index = 0;
     for (const asset of assets) {
       this.assetIndexMap.set(asset.name, index++);
@@ -35,14 +30,6 @@ export class Project {
 
   public getAssetByName(name: string): Asset | undefined {
     return this.assets.find((assetItem) => assetItem.name === name);
-  }
-
-  public getSequences(): Sequence[] {
-    return this.sequences;
-  }
-
-  public getOutput(): Output {
-    return this.output;
   }
 
   public getVideoInputLabelByAssetName(name: string): Label {
@@ -68,7 +55,33 @@ export class Project {
   }
 }
 
-export async function prepareProject(
+export class Project {
+  private assetManager: AssetManager;
+
+  constructor(
+    private sequences: SequenceDefinition[],
+    assets: Asset[],
+    private output: Output,
+  ) {
+    this.assetManager = new AssetManager(assets);
+  }
+
+  public getAssetManager(): AssetManager {
+    return this.assetManager;
+  }
+
+  public getSequences(): SequenceDefinition[] {
+    return this.sequences;
+  }
+
+  public getOutput(): Output {
+    return this.output;
+  }
+}
+
+// -----------------------
+
+export async function parseHTMLDefinition(
   html: ParsedHtml,
   projectPath: string,
 ): Promise<Project> {
@@ -425,9 +438,12 @@ function findOutputElements(html: ParsedHtml): Element[] {
 /**
  * Processes sequences and fragments from the parsed HTML
  */
-function processSequences(html: ParsedHtml, assets: Asset[]): Sequence[] {
+function processSequences(
+  html: ParsedHtml,
+  assets: Asset[],
+): SequenceDefinition[] {
   const sequenceElements = findSequenceElements(html);
-  const sequences: Sequence[] = [];
+  const sequences: SequenceDefinition[] = [];
 
   const assetMap: Map<string, Asset> = new Map();
   assets.forEach((ass) => assetMap.set(ass.name, ass));

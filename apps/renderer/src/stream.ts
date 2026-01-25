@@ -63,20 +63,15 @@ export class FilterBuffer {
   }
 }
 
-export function makeStream(label: Label, buf?: FilterBuffer): Stream {
+export function makeStream(label: Label, buf: FilterBuffer): Stream {
   return new Stream(label, buf);
 }
 
-class Stream {
-  private finished = false;
-  private buf: FilterBuffer;
-
+export class Stream {
   constructor(
     private looseEnd: Label,
-    fBuf?: FilterBuffer,
-  ) {
-    this.buf = fBuf ?? new FilterBuffer();
-  }
+    private buf: FilterBuffer,
+  ) {}
 
   public trim(start: number, end: number): Stream {
     const res = makeTrim([this.looseEnd], start, end);

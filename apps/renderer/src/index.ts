@@ -1,6 +1,6 @@
 import { parseHTMLFile } from './html-parser.js';
 import { resolve } from 'path';
-import { prepareProject as makeProject } from './project.js';
+import { parseHTMLDefinition as makeProject, Project } from './project.js';
 import { spawn } from 'child_process';
 import {
   ChromakeyBlend,
@@ -9,6 +9,7 @@ import {
   makeStream,
 } from './stream.js';
 import { makeFFmpegCommand } from './ffmpeg.js';
+import { Sequence } from './sequence.js';
 
 console.log('Renderer application starting...');
 
@@ -25,8 +26,83 @@ async function main() {
 
   const buf = new FilterBuffer();
 
+  const seq1 = new Sequence(
+    buf,
+    {
+      fragments: [
+        {
+          assetName: 'clip_01',
+          duration: '100%',
+        },
+      ],
+    },
+    project.getOutput(),
+    project.getAssetManager(),
+  );
+  seq1.build();
+
+  // addSampleStreams(project, buf);
+
+  const ffmpegCommand = makeFFmpegCommand(project, buf.render());
+
+  console.log('\n=== Command ===');
+
+  console.log(ffmpegCommand);
+
+  console.log('\n=== Starting Render ===');
+  console.log('Progress:\n');
+
+  // Parse command into array (handle quoted paths)
+  const args =
+    ffmpegCommand
+      .slice('ffmpeg '.length)
+      .match(/(?:[^\s"]+|"[^"]*")+/g)
+      ?.map((arg) => arg.replace(/^"|"$/g, '')) || [];
+
+  return new Promise<void>((resolve, reject) => {
+    const ffmpeg = spawn('ffmpeg', args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    // FFmpeg outputs progress to stderr
+    let stderrBuffer = '';
+    ffmpeg.stderr.on('data', (data) => {
+      const output = data.toString();
+      stderrBuffer += output;
+
+      // Show all output for debugging
+      process.stderr.write(output);
+    });
+
+    ffmpeg.on('close', (code) => {
+      process.stdout.write('\n');
+      if (code === 0) {
+        console.log('\n=== Render Complete ===');
+        console.log(`Output file: ${project.output.path}`);
+        resolve();
+      } else {
+        console.error(`\n=== Render Failed ===`);
+        console.error(`FFmpeg exited with code ${code}`);
+        reject(new Error(`FFmpeg process exited with code ${code}`));
+      }
+    });
+
+    ffmpeg.on('error', (error) => {
+      console.error('\n=== Render Failed ===');
+      console.error('Error:', error.message);
+      reject(error);
+    });
+  });
+}
+
+main().catch((error) => {
+  console.error('Fatal error:', error);
+  process.exit(1);
+});
+
+const addSampleStreams = (project: Project, buf: FilterBuffer) => {
   const glitchStream = makeStream(
-    project.getVideoInputLabelByAssetName('glitch'),
+    project.getAssetManager().getVideoInputLabelByAssetName('glitch'),
     buf,
   )
     .trim(0, 2)
@@ -39,7 +115,7 @@ async function main() {
     });
 
   const clip02VideoStream = makeStream(
-    project.getVideoInputLabelByAssetName('clip_02'),
+    project.getAssetManager().getVideoInputLabelByAssetName('clip_02'),
     buf,
   )
     .trim(0, 5)
@@ -59,7 +135,7 @@ async function main() {
     .fps(30);
 
   const introImageStream = makeStream(
-    project.getVideoInputLabelByAssetName('intro_image'),
+    project.getAssetManager().getVideoInputLabelByAssetName('intro_image'),
     buf,
   )
     .fps(30)
@@ -69,7 +145,10 @@ async function main() {
       startMode: 'clone',
     });
 
-  makeStream(project.getVideoInputLabelByAssetName('clip_01'), buf)
+  makeStream(
+    project.getAssetManager().getVideoInputLabelByAssetName('clip_01'),
+    buf,
+  )
     .trim(0, 5) // length = 5
     .fitOutputContain(
       {
@@ -130,11 +209,14 @@ async function main() {
     });
 
   const clip02AudioStream = makeStream(
-    project.getAudioInputLabelByAssetName('clip_02'),
+    project.getAssetManager().getAudioInputLabelByAssetName('clip_02'),
     buf,
   ).trim(0, 5);
 
-  makeStream(project.getAudioInputLabelByAssetName('clip_01'), buf)
+  makeStream(
+    project.getAssetManager().getAudioInputLabelByAssetName('clip_01'),
+    buf,
+  )
     .trim(0, 5)
     .fade({
       fades: [
@@ -150,60 +232,4 @@ async function main() {
       tag: 'outa',
       isAudio: true,
     });
-
-  const ffmpegCommand = makeFFmpegCommand(project, buf.render());
-
-  console.log('\n=== Command ===');
-
-  console.log(ffmpegCommand);
-
-  console.log('\n=== Starting Render ===');
-  console.log('Progress:\n');
-
-  // Parse command into array (handle quoted paths)
-  const args =
-    ffmpegCommand
-      .slice('ffmpeg '.length)
-      .match(/(?:[^\s"]+|"[^"]*")+/g)
-      ?.map((arg) => arg.replace(/^"|"$/g, '')) || [];
-
-  return new Promise<void>((resolve, reject) => {
-    const ffmpeg = spawn('ffmpeg', args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-
-    // FFmpeg outputs progress to stderr
-    let stderrBuffer = '';
-    ffmpeg.stderr.on('data', (data) => {
-      const output = data.toString();
-      stderrBuffer += output;
-
-      // Show all output for debugging
-      process.stderr.write(output);
-    });
-
-    ffmpeg.on('close', (code) => {
-      process.stdout.write('\n');
-      if (code === 0) {
-        console.log('\n=== Render Complete ===');
-        console.log(`Output file: ${project.output.path}`);
-        resolve();
-      } else {
-        console.error(`\n=== Render Failed ===`);
-        console.error(`FFmpeg exited with code ${code}`);
-        reject(new Error(`FFmpeg process exited with code ${code}`));
-      }
-    });
-
-    ffmpeg.on('error', (error) => {
-      console.error('\n=== Render Failed ===');
-      console.error('Error:', error.message);
-      reject(error);
-    });
-  });
-}
-
-main().catch((error) => {
-  console.error('Fatal error:', error);
-  process.exit(1);
-});
+};

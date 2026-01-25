@@ -1,4 +1,4 @@
-import { ProjectStructure, Sequence, Fragment } from '../type';
+import { ProjectStructure, SequenceDefinition, Fragment } from '../type';
 import { StreamDAG } from './dag';
 import { StreamUtils } from './stream-builder';
 
@@ -132,7 +132,7 @@ export function buildDAG(project: ProjectStructure): StreamDAG {
  */
 function generateSequenceGraph(
   dag: StreamDAG,
-  sequence: Sequence,
+  sequence: SequenceDefinition,
   normalizedAssets: Map<string, string>,
   outputLabel: string,
 ): string {

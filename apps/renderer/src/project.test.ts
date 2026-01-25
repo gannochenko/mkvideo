@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { prepareProject } from './project';
+import { parseHTMLDefinition } from './project';
 import { parseHTML } from './html-parser';
 import { execFile } from 'child_process';
 
@@ -38,7 +38,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       expect(project.assets.size).toBe(1);
       expect(project.assets.get('clip1')).toEqual({
@@ -62,7 +62,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       expect(project.assets.get('img1')?.type).toBe('image');
       expect(project.assets.get('aud1')?.type).toBe('audio');
@@ -80,7 +80,7 @@ describe('prepareProject', () => {
 
       vi.clearAllMocks();
       const parsed = parseHTML(html);
-      await prepareProject(parsed, '/test/project.html');
+      await parseHTMLDefinition(parsed, '/test/project.html');
 
       expect(execFile).not.toHaveBeenCalled();
     });
@@ -96,7 +96,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       expect(project.assets.get('clip1')?.path).toBe('/test/input/video.mp4');
     });
@@ -119,7 +119,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       expect(project.output).toEqual({
         name: 'for_youtube',
@@ -137,7 +137,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       expect(project.output).toEqual({
         name: 'output',
@@ -166,7 +166,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       const fragment = project.sequences[0].fragments[0];
       expect(fragment.assetName).toBe('clip1');
@@ -189,7 +189,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       const fragment = project.sequences[0].fragments[0];
       expect(fragment.assetName).toBe('clip2');
@@ -211,7 +211,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       const fragment = project.sequences[0].fragments[0];
       expect(fragment.blendModeLeft).toBe('screen');
@@ -234,7 +234,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       const fragment = project.sequences[0].fragments[0];
       expect(fragment.transitionIn).toBe('fade-in');
@@ -264,7 +264,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       expect(project.sequences[0].fragments[0].objectFit).toBe('cover');
       expect(project.sequences[0].fragments[1].objectFit).toBe('contain');
@@ -285,7 +285,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       const fragment = project.sequences[0].fragments[0];
       expect(fragment.assetName).toBe('');
@@ -310,7 +310,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       expect(project.sequences[0].fragments[0].duration).toBe(5500);
     });
@@ -340,7 +340,7 @@ describe('prepareProject', () => {
       });
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       expect(project.sequences[0].fragments[0].duration).toBe(5000); // 50% of 10s
     });
@@ -370,7 +370,7 @@ describe('prepareProject', () => {
       });
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       expect(project.sequences[0].fragments[0].duration).toBe(10000); // capped at 100%
     });
@@ -407,7 +407,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       const fragments = project.sequences[0].fragments;
 
@@ -443,7 +443,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       const fragments = project.sequences[0].fragments;
 
@@ -473,7 +473,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       const fragments = project.sequences[0].fragments;
 
@@ -504,7 +504,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       const fragments = project.sequences[0].fragments;
 
@@ -535,7 +535,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       const fragments = project.sequences[0].fragments;
 
@@ -568,7 +568,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       const fragments = project.sequences[0].fragments;
 
@@ -609,7 +609,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       const fragments = project.sequences[0].fragments;
 
@@ -644,7 +644,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       const fragments = project.sequences[0].fragments;
 
@@ -676,7 +676,7 @@ describe('prepareProject', () => {
       `;
 
       const parsed = parseHTML(html);
-      const project = await prepareProject(parsed, '/test/project.html');
+      const project = await parseHTMLDefinition(parsed, '/test/project.html');
 
       expect(project.sequences).toHaveLength(3);
       expect(project.sequences[0].fragments[0].assetName).toBe('clip1');
