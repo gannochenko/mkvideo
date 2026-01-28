@@ -19,6 +19,7 @@ import {
   makeConcat,
   makeFade,
   makeAmix,
+  makeAnullsrc,
 } from './ffmpeg';
 
 export const PILLARBOX = 'pillarbox';
@@ -78,6 +79,12 @@ export class FilterBuffer {
 
 export function makeStream(label: Label, buf: FilterBuffer): Stream {
   return new Stream(label, buf);
+}
+
+export function makeSilentStream(durationInSeconds: number, buf: FilterBuffer): Stream {
+  const filter = makeAnullsrc({ duration: durationInSeconds });
+  buf.append(filter);
+  return new Stream(filter.outputs[0], buf);
 }
 
 export class Stream {
@@ -355,14 +362,28 @@ export class Stream {
   public mixStream(
     stream: Stream,
     options?: {
-      offset?: {
-        streamDuration: number; // duration of this stream
-        otherStreamDuration: number; // duration of the joining stream
-        otherStreamOffsetLeft: number; // offset of the joining stream in seconds
-      };
+      duration?: 'longest' | 'shortest' | 'first';
+      dropout_transition?: number;
+      weights?: number[];
+      normalize?: boolean;
     },
   ): Stream {
-    const res = makeAmix([this.looseEnd, stream.getLooseEnd()], options);
+    return this.mixStreams([stream], options);
+  }
+
+  public mixStreams(
+    streams: Stream[],
+    options?: {
+      duration?: 'longest' | 'shortest' | 'first';
+      dropout_transition?: number;
+      weights?: number[];
+      normalize?: boolean;
+    },
+  ): Stream {
+    const res = makeAmix(
+      [this.looseEnd, ...streams.map((st) => st.getLooseEnd())],
+      options,
+    );
     this.looseEnd = res.outputs[0];
 
     this.buf.append(res);
@@ -389,6 +410,8 @@ export class Stream {
 
   /*
   this stream becomes the bottom layer, and the joining stream - top layer
+  For video: uses overlay filter
+  For audio: uses amix filter
   */
   public overlayStream(
     stream: Stream,
@@ -403,17 +426,30 @@ export class Stream {
   ): Stream {
     const offset = options.offset;
     const flip = !!options.flipLayers;
+    const isAudio = this.looseEnd.isAudio;
+
+    // Validate that both streams are of the same type
+    if (isAudio !== stream.getLooseEnd().isAudio) {
+      throw new Error(
+        'overlayStream: both streams must be of the same type (both video or both audio)',
+      );
+    }
 
     if (!offset || !offset.otherStreamOffsetLeft) {
-      // usual overlay, no offset
-      const res = makeOverlay(
-        flip
-          ? [stream.getLooseEnd(), this.looseEnd]
-          : [this.looseEnd, stream.getLooseEnd()],
-      );
-      this.looseEnd = res.outputs[0];
-
-      this.buf.append(res);
+      // usual overlay/mix, no offset
+      if (isAudio) {
+        const res = makeAmix([this.looseEnd, stream.getLooseEnd()]);
+        this.looseEnd = res.outputs[0];
+        this.buf.append(res);
+      } else {
+        const res = makeOverlay(
+          flip
+            ? [stream.getLooseEnd(), this.looseEnd]
+            : [this.looseEnd, stream.getLooseEnd()],
+        );
+        this.looseEnd = res.outputs[0];
+        this.buf.append(res);
+      }
     } else {
       if (offset.streamDuration === undefined) {
         throw new Error(
@@ -429,31 +465,38 @@ export class Stream {
       const offsetLeft = offset.otherStreamOffsetLeft;
 
       if (offsetLeft > 0) {
+        // Pad the joining stream on the left
         stream.tPad({
           start: offsetLeft,
-          color: Colors.Transparent,
+          ...(isAudio ? {} : { color: Colors.Transparent }),
         });
 
-        // padding the main stream on the right, so the video is not interrupted when it ends
+        // Pad the main stream on the right if needed
         const mainLeftover =
           offset.otherStreamDuration + offsetLeft - offset.streamDuration;
         if (mainLeftover > 0) {
           this.tPad({
             stop: mainLeftover,
-            color: Colors.Transparent,
+            ...(isAudio ? {} : { color: Colors.Transparent }),
           });
         }
 
-        const overlayRes = makeOverlay(
-          flip
-            ? [stream.getLooseEnd(), this.looseEnd]
-            : [this.looseEnd, stream.getLooseEnd()],
-        );
-        this.looseEnd = overlayRes.outputs[0];
-
-        this.buf.append(overlayRes);
-      } else if (offsetLeft > 0) {
-        throw new Error('positive offset is not supported for overlayStream');
+        // Mix or overlay the streams
+        if (isAudio) {
+          const res = makeAmix([this.looseEnd, stream.getLooseEnd()]);
+          this.looseEnd = res.outputs[0];
+          this.buf.append(res);
+        } else {
+          const overlayRes = makeOverlay(
+            flip
+              ? [stream.getLooseEnd(), this.looseEnd]
+              : [this.looseEnd, stream.getLooseEnd()],
+          );
+          this.looseEnd = overlayRes.outputs[0];
+          this.buf.append(overlayRes);
+        }
+      } else if (offsetLeft < 0) {
+        throw new Error('negative offset is not supported for overlayStream');
       }
     }
 

@@ -210,8 +210,11 @@ export class HTMLProjectParser {
     // Get rotation using ffprobe - for video and image
     const rotation = await this.getAssetRotation(absolutePath, type);
 
+    // Check if asset has audio stream
+    const hasAudio = await this.getHasAudio(absolutePath, type);
+
     console.log(
-      `Asset "${name}" dimensions: w=${width}, h=${height}, rotation: ${rotation}°`,
+      `Asset "${name}" dimensions: w=${width}, h=${height}, rotation: ${rotation}°, hasAudio: ${hasAudio}`,
     );
 
     // Extract author (optional)
@@ -225,6 +228,7 @@ export class HTMLProjectParser {
       width,
       height,
       rotation,
+      hasAudio,
       ...(author && { author }),
     };
   }
@@ -377,6 +381,48 @@ export class HTMLProjectParser {
     } catch (error) {
       console.error(`Failed to get dimensions for asset: ${path}`, error);
       return { width: 0, height: 0 };
+    }
+  }
+
+  /**
+   * Checks if an asset file has an audio stream using ffprobe
+   * @param path - Path to the asset file
+   * @param type - Asset type (video, audio, or image)
+   * @returns True if the asset has an audio stream
+   */
+  private async getHasAudio(
+    path: string,
+    type: 'video' | 'image' | 'audio',
+  ): Promise<boolean> {
+    // Images don't have audio
+    if (type === 'image') {
+      return false;
+    }
+
+    // Audio files always have audio
+    if (type === 'audio') {
+      return true;
+    }
+
+    // For video, probe for audio stream
+    try {
+      const { stdout } = await execFileAsync('ffprobe', [
+        '-v',
+        'error',
+        '-select_streams',
+        'a:0',
+        '-show_entries',
+        'stream=codec_type',
+        '-of',
+        'default=noprint_wrappers=1:nokey=1',
+        path,
+      ]);
+
+      // If we get output, an audio stream exists
+      return stdout.trim() === 'audio';
+    } catch (error) {
+      // No audio stream or error
+      return false;
     }
   }
 
@@ -642,6 +688,7 @@ export class HTMLProjectParser {
       styles['-object-fit-contain'] === 'pillarbox' ? 'pillarbox' : 'ambient';
 
     return {
+      enabled: true,
       assetName,
       duration,
       trimLeft: trimStart,
@@ -656,6 +703,10 @@ export class HTMLProjectParser {
       zIndex,
       objectFit,
       objectFitContain,
+      objectFitContainAmbientBlurStrength: 25,
+      objectFitContainAmbientBrightness: -0.1,
+      objectFitContainAmbientSaturation: 0.7,
+      objectFitContainPillarboxColor: '#000000',
     };
   }
 

@@ -439,13 +439,22 @@ export function makeTPad(
   const filterName = input.isAudio ? 'apad' : 'tpad';
 
   if (input.isAudio) {
-    // apad has simpler syntax: pad_len (samples) or pad_dur (seconds)
-    const params: string[] = [];
-    if (stop > 0) {
-      params.push(`pad_dur=${stop}`);
+    // For audio: use adelay for start padding, apad for stop padding
+    const filters: string[] = [];
+
+    // Add silence at the start using adelay (converts seconds to milliseconds)
+    if (start > 0) {
+      const delayMs = Math.round(start * 1000);
+      filters.push(`adelay=${delayMs}|${delayMs}`);
     }
-    const filterParams = params.length > 0 ? `=${params.join(':')}` : '';
-    return new Filter(inputs, [output], `${filterName}${filterParams}`);
+
+    // Add silence at the end using apad
+    if (stop > 0) {
+      filters.push(`apad=pad_dur=${stop}`);
+    }
+
+    const filterStr = filters.length > 0 ? filters.join(',') : 'anull';
+    return new Filter(inputs, [output], filterStr);
   } else {
     // tpad for video
     const params: string[] = [];
@@ -917,6 +926,34 @@ export function makeFade(
   });
 
   return new Filter(inputs, [output], fadeStrings.join(','));
+}
+
+/**
+ * Creates an anullsrc filter to generate silent audio
+ * @param options - Audio parameters
+ *   - duration: Duration in seconds
+ *   - channel_layout: Audio channel layout (default: 'stereo')
+ *   - sample_rate: Sample rate in Hz (default: 48000)
+ * @returns Filter with audio output
+ */
+export function makeAnullsrc(options: {
+  duration: number;
+  channel_layout?: string;
+  sample_rate?: number;
+}): Filter {
+  const output = {
+    tag: getLabel(),
+    isAudio: true,
+  };
+
+  const channelLayout = options.channel_layout ?? 'stereo';
+  const sampleRate = options.sample_rate ?? 48000;
+  const duration = options.duration;
+
+  // anullsrc generates infinite silence, so we trim to the desired duration
+  const filterStr = `anullsrc=channel_layout=${channelLayout}:sample_rate=${sampleRate},atrim=duration=${duration},asetpts=PTS-STARTPTS`;
+
+  return new Filter([], [output], filterStr);
 }
 
 /**

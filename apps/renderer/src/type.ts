@@ -23,6 +23,7 @@ export type Asset = {
   width: number;
   height: number;
   rotation: number; // rotation in degrees (0, 90, 180, 270)
+  hasAudio: boolean; // whether the asset has an audio stream
 };
 
 export type Fragment = {

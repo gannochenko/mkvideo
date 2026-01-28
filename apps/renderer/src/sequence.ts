@@ -3,6 +3,7 @@ import {
   AMBIENT,
   FilterBuffer,
   makeStream,
+  makeSilentStream,
   ObjectFitContainOptions,
   PILLARBOX,
   Stream,
@@ -25,8 +26,8 @@ import { Output, SequenceDefinition } from './type';
 export class Sequence {
   private time: number = 0; // time is absolute
 
-  private videoStream: Stream;
-  private audioStream: Stream;
+  private videoStream!: Stream;
+  private audioStream!: Stream;
 
   constructor(
     private buf: FilterBuffer,
@@ -51,14 +52,26 @@ export class Sequence {
         this.assetManager.getVideoInputLabelByAssetName(fragment.assetName),
         this.buf,
       );
-      const currentAudioStream = makeStream(
-        this.assetManager.getAudioInputLabelByAssetName(fragment.assetName),
-        this.buf,
-      );
+
+      // Create audio stream: use actual audio if available, otherwise create silent stream
+      let currentAudioStream: Stream;
+      if (asset.hasAudio) {
+        currentAudioStream = makeStream(
+          this.assetManager.getAudioInputLabelByAssetName(fragment.assetName),
+          this.buf,
+        );
+      } else {
+        // Create silent audio stream matching the video duration
+        const durationInSeconds = fragment.duration / 1000;
+        currentAudioStream = makeSilentStream(durationInSeconds, this.buf);
+      }
 
       if (fragment.trimLeft != 0 || fragment.duration < asset.duration) {
         currentVideoStream.trim(fragment.trimLeft, fragment.duration);
-        currentAudioStream.trim(fragment.trimLeft, fragment.duration);
+        if (asset.hasAudio) {
+          // Only trim if the audio came from an actual source
+          currentAudioStream.trim(fragment.trimLeft, fragment.duration);
+        }
       }
 
       // must normalize fps and fit video into the output
@@ -104,9 +117,16 @@ export class Sequence {
                 this.time + fragment.duration + fragment.overlayLeft,
             },
           });
-          this.audioStream.mixStream(currentAudioStream);
+          this.audioStream.overlayStream(currentAudioStream, {
+            offset: {
+              streamDuration: this.time,
+              otherStreamDuration: fragment.duration,
+              otherStreamOffsetLeft:
+                this.time + fragment.duration + fragment.overlayLeft,
+            },
+          });
 
-          this.time += fragment.duration - fragment.overlayLeft;
+          this.time += fragment.duration + fragment.overlayLeft;
         }
       } else {
         this.videoStream = currentVideoStream;
