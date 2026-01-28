@@ -37,6 +37,10 @@ export type Fragment = {
   transitionOutDuration: number; // how long the transition out lasts
   objectFit: 'cover' | 'contain';
   objectFitContain: 'ambient' | 'pillarbox';
+  objectFitContainAmbientBlurStrength: number;
+  objectFitContainAmbientBrightness: number;
+  objectFitContainAmbientSaturation: number;
+  objectFitContainPillarboxColor: '#000000';
 
   // probably don't need it:
   zIndex: number; // order of layering

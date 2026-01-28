@@ -25,7 +25,6 @@ import { Output, SequenceDefinition } from './type';
 export class Sequence {
   private time: number = 0; // time is absolute
 
-  private initiailized = false;
   private videoStream: Stream;
   private audioStream: Stream;
 
@@ -69,16 +68,14 @@ export class Sequence {
       } else {
         const options: ObjectFitContainOptions = {};
         if (fragment.objectFitContain === AMBIENT) {
-          // todo: make configurable via CSS
           options.ambient = {
-            blurStrength: 25,
-            brightness: -0.1,
-            saturation: 0.7,
+            blurStrength: fragment.objectFitContainAmbientBlurStrength,
+            brightness: fragment.objectFitContainAmbientBrightness,
+            saturation: fragment.objectFitContainAmbientSaturation,
           };
         } else if (fragment.objectFitContain === PILLARBOX) {
-          // todo: make configurable via CSS
           options.pillarbox = {
-            color: '#000000',
+            color: fragment.objectFitContainPillarboxColor,
           };
         }
         currentVideoStream.fitOutputContain(this.output.resolution, options);
@@ -95,13 +92,12 @@ export class Sequence {
         } else {
           // use overlay
         }
+      } else {
+        this.videoStream = currentVideoStream;
+        this.audioStream = currentAudioStream;
       }
 
-      this.videoStream = currentVideoStream;
-      this.audioStream = currentAudioStream;
-
       firstOne = false;
-      this.initiailized = true;
     });
   }
 

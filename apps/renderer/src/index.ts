@@ -36,7 +36,7 @@ async function main() {
         {
           enabled: true,
           assetName: 'clip_01',
-          duration: 5,
+          duration: 8,
           trimStart: 1,
           overlayLeft: 0,
           transitionIn: '',
@@ -45,6 +45,10 @@ async function main() {
           transitionOutDuration: 0,
           objectFit: 'contain',
           objectFitContain: 'ambient',
+          objectFitContainAmbientBlurStrength: 25,
+          objectFitContainAmbientBrightness: -0.1,
+          objectFitContainAmbientSaturation: 0.7,
+          objectFitContainPillarboxColor: '#000000',
 
           zIndex: 0, // ignore
           blendModeLeft: '', // ignore
@@ -68,7 +72,7 @@ async function main() {
         {
           enabled: true,
           assetName: 'clip_02',
-          duration: 5,
+          duration: 8,
           trimStart: 0,
           overlayLeft: 0,
           transitionIn: '',
@@ -77,6 +81,10 @@ async function main() {
           transitionOutDuration: 0,
           objectFit: 'contain',
           objectFitContain: 'ambient',
+          objectFitContainAmbientBlurStrength: 25,
+          objectFitContainAmbientBrightness: -0.1,
+          objectFitContainAmbientSaturation: 0.7,
+          objectFitContainPillarboxColor: '#000000',
 
           zIndex: 0, // ignore
           blendModeLeft: '', // ignore
