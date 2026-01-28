@@ -920,6 +920,70 @@ export function makeFade(
 }
 
 /**
+ * Creates an amix filter to mix multiple audio streams
+ * @param inputs - Input stream labels (must all be audio)
+ * @param options - Mix parameters
+ *   - duration: Output duration mode ('longest', 'shortest', 'first', default: 'longest')
+ *   - dropout_transition: Transition time when input ends in seconds (default: 2)
+ *   - weights: Array of weights for each input (e.g., [1, 0.5] makes second input quieter)
+ *   - normalize: If true, automatically normalize weights to prevent clipping (default: true)
+ */
+export function makeAmix(
+  inputs: Label[],
+  options: {
+    duration?: 'longest' | 'shortest' | 'first';
+    dropout_transition?: number;
+    weights?: number[];
+    normalize?: boolean;
+  } = {},
+): Filter {
+  if (inputs.length < 2) {
+    throw new Error('makeAmix: requires at least 2 input streams');
+  }
+
+  // Validate that all inputs are audio
+  for (const input of inputs) {
+    if (!input.isAudio) {
+      throw new Error(
+        `makeAmix: all inputs must be audio, got video (tag: ${input.tag})`,
+      );
+    }
+  }
+
+  const output = {
+    tag: getLabel(),
+    isAudio: true,
+  };
+
+  const params: string[] = [];
+  params.push(`inputs=${inputs.length}`);
+
+  if (options.duration) {
+    params.push(`duration=${options.duration}`);
+  }
+
+  if (options.dropout_transition !== undefined) {
+    params.push(`dropout_transition=${options.dropout_transition}`);
+  }
+
+  if (options.weights && options.weights.length > 0) {
+    // Ensure weights array matches inputs length
+    const weights =
+      options.weights.length === inputs.length
+        ? options.weights
+        : [...options.weights, ...Array(inputs.length - options.weights.length).fill(1)];
+
+    params.push(`weights=${weights.join(' ')}`);
+  }
+
+  if (options.normalize !== undefined) {
+    params.push(`normalize=${options.normalize ? '1' : '0'}`);
+  }
+
+  return new Filter(inputs, [output], `amix=${params.join(':')}`);
+}
+
+/**
  * Wraps a label in brackets
  */
 function wrap(label: string): string {

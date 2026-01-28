@@ -56,9 +56,9 @@ export class Sequence {
         this.buf,
       );
 
-      if (fragment.trimStart != 0 || fragment.duration < asset.duration) {
-        currentVideoStream.trim(fragment.trimStart, fragment.duration);
-        currentAudioStream.trim(fragment.trimStart, fragment.duration);
+      if (fragment.trimLeft != 0 || fragment.duration < asset.duration) {
+        currentVideoStream.trim(fragment.trimLeft, fragment.duration);
+        currentAudioStream.trim(fragment.trimLeft, fragment.duration);
       }
 
       // must normalize fps and fit video into the output
@@ -90,7 +90,23 @@ export class Sequence {
 
           this.time += fragment.duration;
         } else {
+          // [         ]
+          //    [         ]
+          //
+
           // use overlay
+          this.videoStream.overlayStream(currentVideoStream, {
+            // flipLayers: true,
+            offset: {
+              streamDuration: this.time,
+              otherStreamDuration: fragment.duration,
+              otherStreamOffsetLeft:
+                this.time + fragment.duration + fragment.overlayLeft,
+            },
+          });
+          this.audioStream.mixStream(currentAudioStream);
+
+          this.time += fragment.duration - fragment.overlayLeft;
         }
       } else {
         this.videoStream = currentVideoStream;

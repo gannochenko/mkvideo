@@ -37,7 +37,7 @@ async function main() {
           enabled: true,
           assetName: 'clip_01',
           duration: 8,
-          trimStart: 1,
+          trimLeft: 1,
           overlayLeft: 0,
           transitionIn: '',
           transitionInDuration: 0,
@@ -54,26 +54,30 @@ async function main() {
           blendModeLeft: '', // ignore
         },
         {
-          enabled: false,
+          enabled: true,
           assetName: 'glitch',
           duration: 2,
-          trimStart: 0,
-          overlayLeft: 0,
+          trimLeft: 0,
+          overlayLeft: -1,
           transitionIn: '',
           transitionInDuration: 0,
           transitionOut: '',
           transitionOutDuration: 0,
           objectFit: 'cover',
           objectFitContain: 'pillarbox', // ignore
+          objectFitContainAmbientBlurStrength: 25,
+          objectFitContainAmbientBrightness: -0.1,
+          objectFitContainAmbientSaturation: 0.7,
+          objectFitContainPillarboxColor: '#000000',
 
           zIndex: 0, // ignore
           blendModeLeft: '', // ignore
         },
         {
-          enabled: true,
+          enabled: false,
           assetName: 'clip_02',
           duration: 8,
-          trimStart: 0,
+          trimLeft: 0,
           overlayLeft: 0,
           transitionIn: '',
           transitionInDuration: 0,
@@ -244,7 +248,7 @@ const addSampleStreams = (project: Project, buf: FilterBuffer) => {
     .overlayStream(glitchStream, {
       // length = 5
       offset: {
-        duration: 5, // value from trim()
+        streamDuration: 5, // value from trim()
         otherStreamDuration: 2, // value from trim() of glitch
         otherStreamOffsetLeft: 4, // start of the glitch
       },
@@ -253,7 +257,7 @@ const addSampleStreams = (project: Project, buf: FilterBuffer) => {
       // length = 11 ?
       flipLayers: true,
       offset: {
-        duration: 5, // value from trim()
+        streamDuration: 5, // value from trim()
         otherStreamDuration: 6, // 5 seconds of clip01, 1 second of glitch
         otherStreamOffsetLeft: 5, // start of the of clip01stream
       },

@@ -168,9 +168,7 @@ export class HTMLProjectParser {
   private async extractAssetFromElement(
     element: Element,
   ): Promise<Asset | null> {
-    const attrs = new Map(
-      element.attrs.map((attr) => [attr.name, attr.value]),
-    );
+    const attrs = new Map(element.attrs.map((attr) => [attr.name, attr.value]));
 
     // Extract name (required)
     const name = attrs.get('data-name') || attrs.get('id');
@@ -400,9 +398,7 @@ export class HTMLProjectParser {
     }
 
     const element = outputElements[0];
-    const attrs = new Map(
-      element.attrs.map((attr) => [attr.name, attr.value]),
-    );
+    const attrs = new Map(element.attrs.map((attr) => [attr.name, attr.value]));
 
     // Extract name
     const name = attrs.get('name') || 'output';
@@ -601,9 +597,7 @@ export class HTMLProjectParser {
     element: Element,
     assets: Map<string, Asset>,
   ): (Fragment & { overlayRight: number; blendModeRight: string }) | null {
-    const attrs = new Map(
-      element.attrs.map((attr) => [attr.name, attr.value]),
-    );
+    const attrs = new Map(element.attrs.map((attr) => [attr.name, attr.value]));
     const styles = this.html.css.get(element) || {};
 
     // Extract assetName from data-asset attribute or CSS -asset property
@@ -650,7 +644,7 @@ export class HTMLProjectParser {
     return {
       assetName,
       duration,
-      trimStart,
+      trimLeft: trimStart,
       overlayLeft,
       overlayRight, // Temporary, will be normalized
       blendModeLeft, // Will be normalized with prev blendModeRight

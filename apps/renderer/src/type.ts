@@ -29,7 +29,7 @@ export type Fragment = {
   enabled: boolean;
   assetName: string;
   duration: number; // calculated, in seconds (can come from CSS or from the asset's duration)
-  trimStart: number; // in seconds
+  trimLeft: number; // in seconds
   overlayLeft: number; // amount of seconds to overlay with the previous fragment (normalized from margin-left + prev margin-right)
   transitionIn: string; // how to transition into the fragment
   transitionInDuration: number; // how long the transition in lasts
