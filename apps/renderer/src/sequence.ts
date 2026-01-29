@@ -1,4 +1,5 @@
 import {
+  calculateFinalValue,
   evaluateCompiledExpression,
   ExpressionContext,
   TimeData,
@@ -80,9 +81,9 @@ export class Sequence {
 
       // duration and clipping adjustment
       if (fragment.trimLeft != 0 || fragment.duration < asset.duration) {
-        console.log('fragment.trimLeft=' + fragment.trimLeft);
-        console.log('fragment.duration=' + fragment.duration);
-        console.log('asset.duration=' + asset.duration);
+        // console.log('fragment.trimLeft=' + fragment.trimLeft);
+        // console.log('fragment.duration=' + fragment.duration);
+        // console.log('asset.duration=' + asset.duration);
 
         // Only trim video if it came from an actual source
         if (asset.hasVideo) {
@@ -191,25 +192,22 @@ export class Sequence {
         });
       }
 
+      const calculatedOverlayLeft = calculateFinalValue(
+        fragment.overlayLeft,
+        this.expressionContext,
+      );
+
+      // console.log(
+      //   'id=' +
+      //     fragment.id +
+      //     ' overlay=' +
+      //     calculatedOverlayLeft +
+      //     ' duration=' +
+      //     fragment.duration,
+      // );
+
       // merging to the main streams
       if (!firstOne) {
-        const calculatedOverlayLeft =
-          typeof fragment.overlayLeft === 'number'
-            ? fragment.overlayLeft
-            : evaluateCompiledExpression(
-                fragment.overlayLeft,
-                this.expressionContext,
-              );
-
-        console.log(
-          'id=' +
-            fragment.id +
-            ' overlay=' +
-            calculatedOverlayLeft +
-            ' duration=' +
-            fragment.duration,
-        );
-
         // attach current streams to the main ones, depending on the stated overlap
         if (calculatedOverlayLeft === 0) {
           // just concat with the previous one, faster
@@ -221,11 +219,11 @@ export class Sequence {
 
           this.time += fragment.duration;
         } else {
-          console.log('this.time=' + this.time);
-          console.log('streamDuration=' + this.time);
-          console.log('otherStreamDuration=' + fragment.duration);
-          const otherStreamOffsetLeft = this.time + calculatedOverlayLeft;
-          console.log('otherStreamOffsetLeft=' + otherStreamOffsetLeft);
+          // console.log('this.time=' + this.time);
+          // console.log('streamDuration=' + this.time);
+          // console.log('otherStreamDuration=' + fragment.duration);
+          // const otherStreamOffsetLeft = this.time + calculatedOverlayLeft;
+          // console.log('otherStreamOffsetLeft=' + otherStreamOffsetLeft);
 
           // use overlay
           this.videoStream.overlayStream(currentVideoStream, {
@@ -252,13 +250,6 @@ export class Sequence {
         }
       } else {
         // here an overlay can only be positive
-        const calculatedOverlayLeft =
-          typeof fragment.overlayLeft === 'number'
-            ? fragment.overlayLeft
-            : evaluateCompiledExpression(
-                fragment.overlayLeft,
-                this.expressionContext,
-              );
         if (calculatedOverlayLeft > 0) {
           currentVideoStream.tPad({
             start: calculatedOverlayLeft,
@@ -268,26 +259,21 @@ export class Sequence {
             start: calculatedOverlayLeft,
             startMode: 'clone',
           });
-        }
-
-        console.log(
-          'id=' +
-            fragment.id +
-            ' overlay=' +
-            calculatedOverlayLeft +
-            ' duration=' +
-            fragment.duration,
-        );
-
-        if (fragment.id === 'end_music') {
-          console.log(
-            this.expressionContext.fragments.get('ending_screen')!.time,
+        } else {
+          throw new Error(
+            'overlay cannot be negative for the first fragment in a sequence',
           );
         }
 
+        // if (fragment.id === 'end_music') {
+        //   console.log(
+        //     this.expressionContext.fragments.get('ending_screen')!.time,
+        //   );
+        // }
+
         this.videoStream = currentVideoStream;
         this.audioStream = currentAudioStream;
-        this.time += fragment.duration;
+        this.time += calculatedOverlayLeft + fragment.duration;
       }
 
       this.expressionContext.fragments.set(fragment.id, {

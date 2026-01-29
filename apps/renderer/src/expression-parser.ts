@@ -123,21 +123,6 @@ export function evaluateCompiledExpression(
 }
 
 /**
- * Convenience function: Parse and evaluate in one step
- *
- * @param expression - The expression string to evaluate
- * @param context - Context containing fragment data
- * @returns Evaluated numeric result (in milliseconds)
- */
-export function evaluateExpression(
-  expression: string,
-  context: ExpressionContext,
-): number {
-  const compiled = parseExpression(expression);
-  return evaluateCompiledExpression(compiled, context);
-}
-
-/**
  * Transforms calc() expression syntax to use variable names instead of fragment references
  * @param expression - Original expression
  * @returns Transformed expression
@@ -192,4 +177,13 @@ export function parseValueLazy(
   throw new Error(
     `Invalid value: "${value}". Expected number or calc() expression`,
   );
+}
+
+export function calculateFinalValue(
+  value: number | CompiledExpression,
+  context: ExpressionContext,
+) {
+  return typeof value === 'number'
+    ? value
+    : evaluateCompiledExpression(value, context);
 }
