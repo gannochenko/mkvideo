@@ -16,6 +16,7 @@ import {
   FragmentData,
   parseExpression,
 } from './expression-parser.js';
+import { exit } from 'process';
 
 console.log('Renderer application starting...');
 
@@ -224,7 +225,7 @@ async function main() {
     {
       fragments: [
         {
-          id: 'f_07',
+          id: 'end_music',
           enabled: true,
           assetName: 'guitar_music',
           duration: 4000, // asset duration is 224653
@@ -268,6 +269,8 @@ async function main() {
     tag: 'outa',
     isAudio: true,
   });
+
+  // exit(1);
 
   // addSampleStreams(project, buf);
 

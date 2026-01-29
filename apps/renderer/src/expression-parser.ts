@@ -167,40 +167,6 @@ export function isCalcExpression(value: string): boolean {
 }
 
 /**
- * Parses a value that might be a number, calc expression string, or compiled expression
- * @param value - Value to parse (number, calc expression string, or CompiledExpression)
- * @param context - Context for expression evaluation
- * @returns Numeric value in milliseconds
- */
-export function parseValue(
-  value: number | string | CompiledExpression,
-  context: ExpressionContext,
-): number {
-  if (typeof value === 'number') {
-    return value;
-  }
-
-  // Check if it's a compiled expression
-  if (typeof value === 'object' && 'expression' in value) {
-    return evaluateCompiledExpression(value, context);
-  }
-
-  if (isCalcExpression(value)) {
-    return evaluateExpression(value, context);
-  }
-
-  // Try to parse as plain number
-  const parsed = parseFloat(value);
-  if (!isNaN(parsed)) {
-    return parsed;
-  }
-
-  throw new Error(
-    `Invalid value: "${value}". Expected number or calc() expression`,
-  );
-}
-
-/**
  * Parses a value into either a number or a compiled expression for later evaluation
  * Use this during HTML parsing to compile expressions once
  * @param value - Value to parse (number or calc expression string)

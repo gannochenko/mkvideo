@@ -40,7 +40,7 @@ export class Sequence {
       const timeContext: TimeData = {
         start: 0,
         end: 0,
-        duration: 0,
+        duration: fragment.duration,
       };
 
       const asset = this.assetManager.getAssetByName(fragment.assetName);
@@ -193,7 +193,6 @@ export class Sequence {
 
       // merging to the main streams
       if (!firstOne) {
-        // expressionContext,
         const calculatedOverlayLeft =
           typeof fragment.overlayLeft === 'number'
             ? fragment.overlayLeft
@@ -202,11 +201,23 @@ export class Sequence {
                 this.expressionContext,
               );
 
+        console.log(
+          'id=' +
+            fragment.id +
+            ' overlay=' +
+            calculatedOverlayLeft +
+            ' duration=' +
+            fragment.duration,
+        );
+
         // attach current streams to the main ones, depending on the stated overlap
-        if (fragment.overlayLeft === 0) {
+        if (calculatedOverlayLeft === 0) {
           // just concat with the previous one, faster
           this.videoStream.concatStream(currentVideoStream);
           this.audioStream.concatStream(currentAudioStream);
+
+          timeContext.start = this.time;
+          timeContext.end = this.time + fragment.duration;
 
           this.time += fragment.duration;
         } else {
@@ -233,9 +244,47 @@ export class Sequence {
             },
           });
 
+          timeContext.start = this.time + calculatedOverlayLeft;
+          timeContext.end =
+            this.time + fragment.duration + calculatedOverlayLeft;
+
           this.time += fragment.duration + calculatedOverlayLeft;
         }
       } else {
+        // here an overlay can only be positive
+        const calculatedOverlayLeft =
+          typeof fragment.overlayLeft === 'number'
+            ? fragment.overlayLeft
+            : evaluateCompiledExpression(
+                fragment.overlayLeft,
+                this.expressionContext,
+              );
+        if (calculatedOverlayLeft > 0) {
+          currentVideoStream.tPad({
+            start: calculatedOverlayLeft,
+            startMode: 'clone',
+          });
+          currentAudioStream.tPad({
+            start: calculatedOverlayLeft,
+            startMode: 'clone',
+          });
+        }
+
+        console.log(
+          'id=' +
+            fragment.id +
+            ' overlay=' +
+            calculatedOverlayLeft +
+            ' duration=' +
+            fragment.duration,
+        );
+
+        if (fragment.id === 'end_music') {
+          console.log(
+            this.expressionContext.fragments.get('ending_screen')!.time,
+          );
+        }
+
         this.videoStream = currentVideoStream;
         this.audioStream = currentAudioStream;
         this.time += fragment.duration;
