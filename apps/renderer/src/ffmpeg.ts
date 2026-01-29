@@ -1,3 +1,4 @@
+import { spawn } from 'child_process';
 import { getLabel } from './label-generator';
 import { Project } from './project';
 
@@ -100,6 +101,48 @@ export function makeFFmpegCommand(
 
   return parts.join(' ');
 }
+
+export const runFFMpeg = async (ffmpegCommand: string) => {
+  const args =
+    ffmpegCommand
+      .slice('ffmpeg '.length)
+      .match(/(?:[^\s"]+|"[^"]*")+/g)
+      ?.map((arg) => arg.replace(/^"|"$/g, '')) || [];
+
+  return new Promise<void>((resolve, reject) => {
+    const ffmpeg = spawn('ffmpeg', args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    // FFmpeg outputs progress to stderr
+    let stderrBuffer = '';
+    ffmpeg.stderr.on('data', (data) => {
+      const output = data.toString();
+      stderrBuffer += output;
+
+      // Show all output for debugging
+      process.stderr.write(output);
+    });
+
+    ffmpeg.on('close', (code) => {
+      process.stdout.write('\n');
+      if (code === 0) {
+        console.log('\n=== Render Complete ===');
+        resolve();
+      } else {
+        console.error(`\n=== Render Failed ===`);
+        console.error(`FFmpeg exited with code ${code}`);
+        reject(new Error(`FFmpeg process exited with code ${code}`));
+      }
+    });
+
+    ffmpeg.on('error', (error) => {
+      console.error('\n=== Render Failed ===');
+      console.error('Error:', error.message);
+      reject(error);
+    });
+  });
+};
 
 /**
  * Creates a concat filter

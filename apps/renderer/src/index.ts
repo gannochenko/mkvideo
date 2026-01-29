@@ -1,6 +1,6 @@
 import { HTMLParser } from './html-parser.js';
 import { resolve } from 'path';
-import { HTMLProjectParser, Project } from './project.js';
+import { Project } from './project.js';
 import { spawn } from 'child_process';
 import {
   ChromakeyBlend,
@@ -8,7 +8,7 @@ import {
   FilterBuffer,
   makeStream,
 } from './stream.js';
-import { makeFFmpegCommand } from './ffmpeg.js';
+import { makeFFmpegCommand, runFFMpeg } from './ffmpeg.js';
 import { Sequence } from './sequence.js';
 import { getAssetDuration } from './ffprobe.js';
 import {
@@ -16,22 +16,17 @@ import {
   FragmentData,
   parseExpression,
 } from './expression-parser.js';
-import { exit } from 'process';
-
-console.log('Renderer application starting...');
+import { HTMLProjectParser } from './html-project-parser.js';
 
 async function main() {
-  console.log('Renderer ready');
-
   // Parse the demo project HTML file
   const projectPath = resolve(__dirname, '../../../examples/demo/project.html');
 
-  // parsing HTML into AST
-  const htmlParser = new HTMLParser();
-  const htmlAST = await htmlParser.parseFile(projectPath);
-
   // converting AST to the Project
-  const parser = new HTMLProjectParser(htmlAST, projectPath);
+  const parser = new HTMLProjectParser(
+    await new HTMLParser().parseFile(projectPath),
+    projectPath,
+  );
   const project = await parser.parse();
 
   const buf = new FilterBuffer();
@@ -271,7 +266,6 @@ async function main() {
   });
 
   // exit(1);
-
   // addSampleStreams(project, buf);
 
   const ffmpegCommand = makeFFmpegCommand(project, buf.render());
@@ -283,188 +277,15 @@ async function main() {
   console.log('\n=== Starting Render ===');
   console.log('Progress:\n');
 
-  // Parse command into array (handle quoted paths)
-  const args =
-    ffmpegCommand
-      .slice('ffmpeg '.length)
-      .match(/(?:[^\s"]+|"[^"]*")+/g)
-      ?.map((arg) => arg.replace(/^"|"$/g, '')) || [];
+  await runFFMpeg(ffmpegCommand);
 
-  return new Promise<void>((resolve, reject) => {
-    const ffmpeg = spawn('ffmpeg', args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-
-    // FFmpeg outputs progress to stderr
-    let stderrBuffer = '';
-    ffmpeg.stderr.on('data', (data) => {
-      const output = data.toString();
-      stderrBuffer += output;
-
-      // Show all output for debugging
-      process.stderr.write(output);
-    });
-
-    ffmpeg.on('close', (code) => {
-      process.stdout.write('\n');
-      if (code === 0) {
-        console.log('\n=== Render Complete ===');
-        const resultPath = project.getOutput().path;
-        console.log(`Output file: ${resultPath}`);
-        getAssetDuration(resultPath).then((resultDuration) => {
-          console.log(`Output duration: ${resultDuration}ms`);
-          resolve();
-        });
-      } else {
-        console.error(`\n=== Render Failed ===`);
-        console.error(`FFmpeg exited with code ${code}`);
-        reject(new Error(`FFmpeg process exited with code ${code}`));
-      }
-    });
-
-    ffmpeg.on('error', (error) => {
-      console.error('\n=== Render Failed ===');
-      console.error('Error:', error.message);
-      reject(error);
-    });
-  });
+  const resultPath = project.getOutput().path;
+  console.log(`Output file: ${resultPath}`);
+  const resultDuration = await getAssetDuration(resultPath);
+  console.log(`Output duration: ${resultDuration}ms`);
 }
 
 main().catch((error) => {
   console.error('Fatal error:', error);
   process.exit(1);
 });
-
-const addSampleStreams = (project: Project, buf: FilterBuffer) => {
-  const glitchStream = makeStream(
-    project.getAssetManager().getVideoInputLabelByAssetName('glitch'),
-    buf,
-  )
-    .trim(0, 2)
-    .fitOutputContain({ width: 1920, height: 1080 })
-    .fps(30)
-    .chromakey({
-      blend: ChromakeyBlend.Smooth,
-      similarity: ChromakeySimilarity.Strict,
-      color: '#000000',
-    });
-
-  const clip02VideoStream = makeStream(
-    project.getAssetManager().getVideoInputLabelByAssetName('clip_02'),
-    buf,
-  )
-    .trim(0, 5)
-    .fitOutputContain(
-      {
-        width: 1920,
-        height: 1080,
-      },
-      {
-        ambient: {
-          blurStrength: 25,
-          brightness: -0.1,
-          saturation: 0.7,
-        },
-      },
-    )
-    .fps(30);
-
-  const introImageStream = makeStream(
-    project.getAssetManager().getVideoInputLabelByAssetName('intro_image'),
-    buf,
-  )
-    .fps(30)
-    .fitOutputCover({ width: 1920, height: 1080 })
-    .tPad({
-      start: 3,
-      startMode: 'clone',
-    });
-
-  makeStream(
-    project.getAssetManager().getVideoInputLabelByAssetName('clip_01'),
-    buf,
-  )
-    .trim(0, 5) // length = 5
-    .fitOutputContain(
-      {
-        width: 1920,
-        height: 1080,
-      },
-      {
-        ambient: {
-          blurStrength: 25,
-          brightness: -0.1,
-          saturation: 0.7,
-        },
-        // pillarbox: {
-        //   color: '#ff0000',
-        // },
-      },
-    )
-    .fps(30)
-    .fade({
-      fades: [
-        {
-          type: 'in',
-          startTime: 0,
-          duration: 1,
-        },
-      ],
-    })
-    .overlayStream(glitchStream, {
-      // length = 5
-      offset: {
-        streamDuration: 5, // value from trim()
-        otherStreamDuration: 2, // value from trim() of glitch
-        otherStreamOffsetLeft: 4, // start of the glitch
-      },
-    })
-    .overlayStream(clip02VideoStream, {
-      // length = 11 ?
-      flipLayers: true,
-      offset: {
-        streamDuration: 5, // value from trim()
-        otherStreamDuration: 6, // 5 seconds of clip01, 1 second of glitch
-        otherStreamOffsetLeft: 5, // start of the of clip01stream
-      },
-    })
-    .fade({
-      fades: [
-        {
-          type: 'out',
-          startTime: 9,
-          duration: 1,
-        },
-      ],
-    })
-    .concatStream(introImageStream)
-    .endTo({
-      tag: 'outv',
-      isAudio: false,
-    });
-
-  const clip02AudioStream = makeStream(
-    project.getAssetManager().getAudioInputLabelByAssetName('clip_02'),
-    buf,
-  ).trim(0, 5);
-
-  makeStream(
-    project.getAssetManager().getAudioInputLabelByAssetName('clip_01'),
-    buf,
-  )
-    .trim(0, 5)
-    .fade({
-      fades: [
-        {
-          type: 'in',
-          startTime: 0,
-          duration: 1,
-        },
-      ],
-    })
-    .concatStream(clip02AudioStream)
-    .endTo({
-      tag: 'outa',
-      isAudio: true,
-    });
-};
