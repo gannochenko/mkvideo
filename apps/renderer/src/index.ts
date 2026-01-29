@@ -10,6 +10,7 @@ import {
 } from './stream.js';
 import { makeFFmpegCommand } from './ffmpeg.js';
 import { Sequence } from './sequence.js';
+import { getAssetDuration } from './ffprobe.js';
 
 console.log('Renderer application starting...');
 
@@ -36,7 +37,7 @@ async function main() {
         {
           enabled: true,
           assetName: 'intro_image',
-          duration: 1000, // asset duration is 0
+          duration: 5000, // asset duration is 0
           trimLeft: 0,
           overlayLeft: 0,
           overlayZIndex: 1,
@@ -59,7 +60,7 @@ async function main() {
           blendModeLeft: '', // ignore
         },
         {
-          enabled: true,
+          enabled: false,
           assetName: 'clip_01',
           duration: 11330 - 3000, // asset duration is 11330
           trimLeft: 3000,
@@ -84,7 +85,7 @@ async function main() {
           blendModeLeft: '', // ignore
         },
         {
-          enabled: true,
+          enabled: false,
           assetName: 'glitch',
           duration: 2000, // asset duration is 10000
           trimLeft: 0,
@@ -109,7 +110,7 @@ async function main() {
           blendModeLeft: '', // ignore
         },
         {
-          enabled: true,
+          enabled: false,
           assetName: 'clip_02',
           duration: 3000, // asset duration is 90245
           trimLeft: 0,
@@ -187,8 +188,12 @@ async function main() {
       process.stdout.write('\n');
       if (code === 0) {
         console.log('\n=== Render Complete ===');
-        console.log(`Output file: ${project.getOutput().path}`);
-        resolve();
+        const resultPath = project.getOutput().path;
+        console.log(`Output file: ${resultPath}`);
+        getAssetDuration(resultPath).then((resultDuration) => {
+          console.log(`Output duration: ${resultDuration}ms`);
+          resolve();
+        });
       } else {
         console.error(`\n=== Render Failed ===`);
         console.error(`FFmpeg exited with code ${code}`);

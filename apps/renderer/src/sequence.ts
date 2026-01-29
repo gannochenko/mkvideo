@@ -69,6 +69,17 @@ export class Sequence {
           );
         }
       }
+      if (asset.duration === 0 && fragment.duration > 0) {
+        // special case for images
+        currentVideoStream.tPad({
+          start: fragment.duration,
+          startMode: 'clone',
+        });
+        currentAudioStream.tPad({
+          start: fragment.duration,
+          startMode: 'clone',
+        });
+      }
 
       // stream normalization
 
