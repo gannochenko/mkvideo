@@ -10,19 +10,6 @@ import {
 } from './stream';
 import { Output, SequenceDefinition } from './type';
 
-// type FragmentLayout = {
-//   duration: number;
-//   trimStart: number;
-//   trimEnd: number;
-// };
-
-// type Fragment = {
-//   assetName: string;
-//   duration: string | number;
-//   trimStart?: string | number; // padding-left :)
-//   layout?: FragmentLayout;
-// };
-
 export class Sequence {
   private time: number = 0; // time is absolute
 
@@ -65,6 +52,7 @@ export class Sequence {
         currentAudioStream = makeSilentStream(fragment.duration, this.buf);
       }
 
+      // duration and clipping adjustment
       if (fragment.trimLeft != 0 || fragment.duration < asset.duration) {
         console.log('fragment.trimLeft=' + fragment.trimLeft);
         console.log('fragment.duration=' + fragment.duration);
@@ -82,8 +70,12 @@ export class Sequence {
         }
       }
 
-      // must normalize fps and fit video into the output
+      // stream normalization
+
+      // fps reduction
       currentVideoStream.fps(this.output.fps);
+
+      // fitting the video stream into the output frame
       if (fragment.objectFit === 'cover') {
         currentVideoStream.fitOutputCover(this.output.resolution);
       } else {
@@ -102,6 +94,9 @@ export class Sequence {
         currentVideoStream.fitOutputContain(this.output.resolution, options);
       }
 
+      // adding effects if needed
+
+      // chromakey
       if (fragment.chromakey) {
         currentVideoStream.chromakey({
           blend: fragment.chromakeyBlend,
@@ -110,6 +105,49 @@ export class Sequence {
         });
       }
 
+      // transitions
+      if (fragment.transitionIn === 'fade') {
+        currentVideoStream.fade({
+          fades: [
+            {
+              type: 'in',
+              startTime: 0,
+              duration: fragment.transitionInDuration,
+            },
+          ],
+        });
+        currentAudioStream.fade({
+          fades: [
+            {
+              type: 'in',
+              startTime: 0,
+              duration: fragment.transitionInDuration,
+            },
+          ],
+        });
+      }
+      if (fragment.transitionOut === 'fade') {
+        currentVideoStream.fade({
+          fades: [
+            {
+              type: 'out',
+              startTime: fragment.duration - fragment.transitionOutDuration,
+              duration: fragment.transitionOutDuration,
+            },
+          ],
+        });
+        currentAudioStream.fade({
+          fades: [
+            {
+              type: 'out',
+              startTime: fragment.duration - fragment.transitionOutDuration,
+              duration: fragment.transitionOutDuration,
+            },
+          ],
+        });
+      }
+
+      // merging to the main streams
       if (!firstOne) {
         // attach current streams to the main ones, depending on the stated overlap
         if (fragment.overlayLeft === 0) {
@@ -119,10 +157,6 @@ export class Sequence {
 
           this.time += fragment.duration;
         } else {
-          // [         ]
-          //    [         ]
-          //
-
           console.log('this.time=' + this.time);
           console.log('streamDuration=' + this.time);
           console.log('otherStreamDuration=' + fragment.duration);

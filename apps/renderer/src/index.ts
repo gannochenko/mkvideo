@@ -35,13 +35,38 @@ async function main() {
       fragments: [
         {
           enabled: true,
+          assetName: 'intro_image',
+          duration: 1000, // asset duration is 0
+          trimLeft: 0,
+          overlayLeft: 0,
+          overlayZIndex: 1,
+          transitionIn: '',
+          transitionInDuration: 0,
+          transitionOut: 'fade',
+          transitionOutDuration: 0, //500,
+          objectFit: 'cover',
+          objectFitContain: 'ambient',
+          objectFitContainAmbientBlurStrength: 25,
+          objectFitContainAmbientBrightness: -0.1,
+          objectFitContainAmbientSaturation: 0.7,
+          objectFitContainPillarboxColor: '#000000',
+          chromakey: false,
+          chromakeyBlend: 0.1,
+          chromakeySimilarity: 0.1,
+          chromakeyColor: '#000000',
+
+          zIndex: 0, // ignore
+          blendModeLeft: '', // ignore
+        },
+        {
+          enabled: true,
           assetName: 'clip_01',
           duration: 11330 - 3000, // asset duration is 11330
           trimLeft: 3000,
           overlayLeft: 0,
           overlayZIndex: 1,
-          transitionIn: '',
-          transitionInDuration: 0,
+          transitionIn: 'fade',
+          transitionInDuration: 1000,
           transitionOut: '',
           transitionOutDuration: 0,
           objectFit: 'contain',
@@ -70,7 +95,7 @@ async function main() {
           transitionOut: '',
           transitionOutDuration: 0,
           objectFit: 'cover',
-          objectFitContain: 'pillarbox', // ignore
+          objectFitContain: 'pillarbox',
           objectFitContainAmbientBlurStrength: 25,
           objectFitContainAmbientBrightness: -0.1,
           objectFitContainAmbientSaturation: 0.7,
@@ -86,14 +111,14 @@ async function main() {
         {
           enabled: true,
           assetName: 'clip_02',
-          duration: 4000, // asset duration is 90245
+          duration: 3000, // asset duration is 90245
           trimLeft: 0,
           overlayLeft: -1000,
           overlayZIndex: -1,
           transitionIn: '',
           transitionInDuration: 0,
-          transitionOut: '',
-          transitionOutDuration: 0,
+          transitionOut: 'fade',
+          transitionOutDuration: 1000,
           objectFit: 'contain',
           objectFitContain: 'ambient',
           objectFitContainAmbientBlurStrength: 25,
