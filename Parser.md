@@ -49,6 +49,7 @@ A <fragment> tag may have several classes, each class may have css properties. T
 Let me explain what each rule means:
 
 1. `-asset` is mapped to `assetName` and represents the name of the asset used for this fragment.
+   1.1 The asset can also be defined through an attribute of the fragment tag.
 2. `display` controls the `enabled` property. `display: none` sets the property to `false`, while anything else or abscense of such leads to `true`.
 3. `-duration` controls the `duration` property. It can be:
    3.1 `auto` (by default, or if not set) - in this case the duration takes all duration of the asset plus possible -offset-start and -offset-end (which can be negative)
@@ -75,3 +76,5 @@ Let me explain what each rule means:
    9.4: `chromakeyColor` is a color constant with transparency
 10. `-overlay-start-z-index` defines `overlayZIndexLeft` and can be an integer.
 11. `-overlay-end-z-index` defines `overlayZIndexLeft` of the fragment next to the current one and can be an integer. If the fragment has its own definion of `-overlay-start-z-index`, it is ignored.
+
+The `id` field is defined from an attribute of the fragment tag. If there is no attribute, a random value is used.
