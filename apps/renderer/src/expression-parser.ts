@@ -124,22 +124,32 @@ export function evaluateCompiledExpression(
 
 /**
  * Transforms calc() expression syntax to use variable names instead of fragment references
+ * and converts time units to milliseconds
  * @param expression - Original expression
  * @returns Transformed expression
  *
- * Example: calc(-1 * #ending_screen.time.start)
- *       -> -1 * ending_screen_time_start
+ * Example: calc(url(#ending_screen.time.start) + 5s)
+ *       -> ending_screen_time_start + 5000
  */
 function transformExpressionToVariables(expression: string): string {
-  return (
-    expression
-      // Remove calc() wrapper
-      .replace(/calc\(/g, '(')
-      // Convert fragment references: #id.prop.path -> id_prop_path
-      .replace(/#(\w+)\.([\w.]+?)(?=\s|[+\-*/)]|$)/g, (_, id, prop) => {
-        return `${id}_${prop.replace(/\./g, '_')}`;
-      })
-  );
+  let transformed = expression
+    // Remove calc() wrapper
+    .replace(/calc\(/g, '(')
+    // Convert fragment references: url(#id.prop.path) -> id_prop_path
+    .replace(/url\(#(\w+)\.([\w.]+?)\)/g, (_, id, prop) => {
+      return `${id}_${prop.replace(/\./g, '_')}`;
+    })
+    // Convert time units to milliseconds
+    // Match numbers with 's' suffix (seconds): 5s -> 5000
+    .replace(/(\d+(?:\.\d+)?)s(?!\w)/g, (_, num) => {
+      return String(parseFloat(num) * 1000);
+    })
+    // Match numbers with 'ms' suffix (milliseconds): 5000ms -> 5000
+    .replace(/(\d+(?:\.\d+)?)ms(?!\w)/g, (_, num) => {
+      return String(parseFloat(num));
+    });
+
+  return transformed;
 }
 
 /**

@@ -54,9 +54,6 @@ async function main() {
           chromakeyBlend: 0.1,
           chromakeySimilarity: 0.1,
           chromakeyColor: '#000000',
-
-          zIndex: 0, // ignore
-          blendModeLeft: '', // ignore
         },
         {
           id: 'f_02',
@@ -80,9 +77,6 @@ async function main() {
           chromakeyBlend: 0.1,
           chromakeySimilarity: 0.1,
           chromakeyColor: '#000000',
-
-          zIndex: 0, // ignore
-          blendModeLeft: '', // ignore
         },
         {
           id: 'f_03',
@@ -106,9 +100,6 @@ async function main() {
           chromakeyBlend: 0.1,
           chromakeySimilarity: 0.1,
           chromakeyColor: '#000000',
-
-          zIndex: 0, // ignore
-          blendModeLeft: '', // ignore
         },
         {
           id: 'f_04',
@@ -132,9 +123,6 @@ async function main() {
           chromakeyBlend: 0.1,
           chromakeySimilarity: 0.1,
           chromakeyColor: '#000000',
-
-          zIndex: 0, // ignore
-          blendModeLeft: '', // ignore
         },
         {
           id: 'ending_screen',
@@ -158,9 +146,6 @@ async function main() {
           chromakeyBlend: 0.1,
           chromakeySimilarity: 0.1,
           chromakeyColor: '#000000',
-
-          zIndex: 0, // ignore
-          blendModeLeft: '', // ignore
         },
       ],
     },
@@ -196,9 +181,6 @@ async function main() {
           chromakeyBlend: 0.1,
           chromakeySimilarity: 0.1,
           chromakeyColor: '#000000',
-
-          zIndex: 0, // ignore
-          blendModeLeft: '', // ignore
         },
       ],
     },
@@ -234,9 +216,6 @@ async function main() {
           chromakeyBlend: 0.1,
           chromakeySimilarity: 0.1,
           chromakeyColor: '#000000',
-
-          zIndex: 0, // ignore
-          blendModeLeft: '', // ignore
         },
       ],
     },

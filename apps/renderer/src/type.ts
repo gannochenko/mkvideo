@@ -50,10 +50,6 @@ export type Fragment = {
   chromakeyBlend: number;
   chromakeySimilarity: number;
   chromakeyColor: string;
-
-  // probably don't need it:
-  zIndex: number; // order of layering
-  blendModeLeft: string; // how to blend with the previous fragment (normalized from -blend-mode-left + prev -blend-mode-right)
 };
 
 export type SequenceDefinition = {

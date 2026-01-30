@@ -12,7 +12,7 @@
     <fragment class="clip_1" />
     <fragment class="glitch" />
     <fragment class="clip_2" />
-    <fragment class="outro_image" />
+    <fragment class="outro_image" id="ending_screen" />
   </sequence>
   <sequence>
     <fragment class="intro_sound" />
@@ -23,19 +23,52 @@
 </project>
 
 <style>
+  :root {
+    --primary-color: #3498db;
+    --spacing: 20px;
+    --font-size: 16px;
+  }
+
   .intro_image {
+    -asset: intro_image;
+    -duration: 4000ms;
+    -transition-end: fade-out 500ms;
   }
   .clip_1 {
+    -asset: clip_01;
+    -duration: auto; /* auto means the duration takes 100% of the asset length minus -trim-left */
+    -offset-start: 3000ms;
+    -transition-start: fade-in 1000ms;
+    -object-fit: contain ambient 25 -0.1 0.7;
   }
   .clip_2 {
+    -asset: clip_02;
+    -duration: 3000ms;
   }
   .outro_image {
+    -asset: intro_image;
+    -duration: 4000ms;
+    transition: fade-out 500ms;
   }
   .glitch {
+    -asset: glitch;
+    -duration: 500ms;
+    transition: fade-out 1000ms;
+    /* -offset: -250ms; */
+    -offset-start: -250ms; /* goes over */
+    -offset-end: -250ms; /* 1 - goes over, -1 - goes under */
+    -chromakey: 0.1 0.1 #000000;
   }
   .intro_sound {
+    -asset: guitar_music;
+    -duration: 4000ms;
+    transition: fade-out 500ms;
   }
   .outro_sound {
+    -asset: guitar_music;
+    -duration: 4000ms;
+    -offset-start: calc(url(#main.time.end) + 5s);
+    transition: fade-out 500ms;
   }
 </style>
 
