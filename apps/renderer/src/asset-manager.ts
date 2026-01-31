@@ -40,4 +40,16 @@ export class AssetManager {
       isAudio: true,
     };
   }
+
+  /**
+   * Adds a virtual asset (e.g., rendered container screenshot)
+   */
+  public addVirtualAsset(asset: Asset): void {
+    // Add to assets array
+    this.assets.push(asset);
+
+    // Assign next available index
+    const nextIndex = this.assetIndexMap.size;
+    this.assetIndexMap.set(asset.name, nextIndex);
+  }
 }

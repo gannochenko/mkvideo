@@ -4,6 +4,8 @@ import { AssetManager } from './asset-manager';
 import { Sequence } from './sequence';
 import { FilterBuffer } from './stream';
 import { ExpressionContext, FragmentData } from './expression-parser';
+import { renderContainers } from './container-renderer';
+import { dirname } from 'path';
 
 export class Project {
   private assetManager: AssetManager;
@@ -14,6 +16,7 @@ export class Project {
     assets: Asset[],
     private outputs: Map<string, Output>,
     private cssText: string,
+    private projectPath: string,
   ) {
     this.assetManager = new AssetManager(assets);
     this.expressionContext = {
@@ -21,11 +24,14 @@ export class Project {
     };
   }
 
-  public build(outputName: string): FilterBuffer {
+  public async build(outputName: string): Promise<FilterBuffer> {
     const output = this.getOutput(outputName);
     if (!output) {
       throw new Error(`Output "${outputName}" not found`);
     }
+
+    // Render containers at the beginning
+    await this.renderContainers(output);
 
     let buf = new FilterBuffer();
     let mainSequence: Sequence | null = null;
@@ -107,5 +113,62 @@ export class Project {
 
   public getAudioInputLabelByAssetName(name: string): Label {
     return this.assetManager.getAudioInputLabelByAssetName(name);
+  }
+
+  /**
+   * Renders all containers and creates virtual assets for them
+   */
+  private async renderContainers(output: Output): Promise<void> {
+    // Collect all fragments with containers
+    const fragmentsWithContainers = this.sequencesDefinitions.flatMap((seq) =>
+      seq.fragments.filter((frag) => frag.container),
+    );
+
+    if (fragmentsWithContainers.length === 0) {
+      return;
+    }
+
+    console.log('\n=== Rendering Containers ===\n');
+
+    const containers = fragmentsWithContainers.map((frag) => frag.container!);
+    const projectDir = dirname(this.projectPath);
+
+    const results = await renderContainers(
+      containers,
+      this.cssText,
+      output.resolution.width,
+      output.resolution.height,
+      projectDir,
+    );
+
+    console.log(`\nRendered ${results.length} container(s)\n`);
+
+    // Create virtual assets and update fragment assetNames
+    for (const result of results) {
+      const virtualAssetName = `container_${result.container.id}`;
+
+      // Create virtual asset
+      const virtualAsset: Asset = {
+        name: virtualAssetName,
+        path: result.screenshotPath,
+        type: 'image',
+        duration: 0,
+        width: output.resolution.width,
+        height: output.resolution.height,
+        rotation: 0,
+        hasVideo: true,
+        hasAudio: false,
+      };
+
+      this.assetManager.addVirtualAsset(virtualAsset);
+
+      // Update fragment assetName
+      const fragment = fragmentsWithContainers.find(
+        (frag) => frag.container?.id === result.container.id,
+      );
+      if (fragment) {
+        fragment.assetName = virtualAssetName;
+      }
+    }
   }
 }

@@ -24,7 +24,7 @@ export class HTMLProjectParser {
 
   constructor(
     private html: ParsedHtml,
-    projectPath: string,
+    private projectPath: string,
   ) {
     this.projectDir = dirname(projectPath);
   }
@@ -35,7 +35,7 @@ export class HTMLProjectParser {
     const sequences = this.processSequences(assets);
     const cssText = this.html.cssText;
 
-    return new Project(sequences, assets, outputs, cssText);
+    return new Project(sequences, assets, outputs, cssText, this.projectPath);
   }
 
   /**
