@@ -10,7 +10,7 @@
     <fragment class="intro_sound" />
   </sequence>
   <sequence>
-    <fragment class="outro_sound disabled" />
+    <fragment class="outro_sound" id="outro_sound" />
   </sequence>
 </project>
 
@@ -65,7 +65,7 @@
   .outro_sound {
     -asset: guitar_music;
     -duration: 4000ms;
-    -offset-start: calc(url(#ending_screen.time.end) + 5s);
+    -offset-start: calc(url(#ending_screen.time.start));
     -transition-end: fade-out 500ms;
   }
 </style>

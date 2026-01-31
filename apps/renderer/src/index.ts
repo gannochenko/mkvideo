@@ -1,14 +1,7 @@
 import { HTMLParser } from './html-parser.js';
 import { resolve } from 'path';
-import { FilterBuffer } from './stream.js';
 import { makeFFmpegCommand, runFFMpeg } from './ffmpeg.js';
-import { Sequence } from './sequence.js';
 import { getAssetDuration } from './ffprobe.js';
-import {
-  ExpressionContext,
-  FragmentData,
-  parseExpression,
-} from './expression-parser.js';
 import { HTMLProjectParser } from './html-project-parser.js';
 
 async function main() {

@@ -43,6 +43,10 @@ export class Sequence {
         this.expressionContext,
       );
 
+      // if (fragment.id === 'outro_sound') {
+      //   debugger;
+      // }
+
       const timeContext: TimeData = {
         start: 0,
         end: 0,
