@@ -1,28 +1,35 @@
 <project>
   <sequence>
     <fragment class="intro_image" />
-    <fragment class="clip_1" />
+    <fragment class="clip_1 ambient" />
     <fragment class="glitch" />
-    <fragment class="clip_2" />
-    <fragment class="outro_image" id="ending_screen" />
+    <fragment class="clip_2 ambient" />
+    <fragment class="outro_image outro_duration" id="ending_screen" />
   </sequence>
   <sequence>
     <fragment class="intro_sound" />
   </sequence>
   <sequence>
-    <fragment class="outro_sound" id="outro_sound" />
+    <fragment class="outro_sound outro_duration" id="outro_sound" />
   </sequence>
 </project>
 
 <style>
-  :root {
+  /* todo: variable support would be cool */
+  /* :root {
     --primary-color: #3498db;
     --spacing: 20px;
     --font-size: 16px;
-  }
+  } */
 
   .disabled {
     display: none;
+  }
+  .ambient {
+    -object-fit: contain ambient 25 -0.1 0.7;
+  }
+  .outro_duration {
+    -duration: 5000ms;
   }
 
   .intro_image {
@@ -34,17 +41,14 @@
     -asset: clip_01;
     -trim-start: 3000ms;
     -transition-start: fade-in 1000ms;
-    -object-fit: contain ambient 25 -0.1 0.7;
   }
   .clip_2 {
     -asset: clip_02;
     -duration: 3000ms;
-    -object-fit: contain ambient 25 -0.1 0.7;
     -transition-end: fade-out 1000ms;
   }
   .outro_image {
     -asset: intro_image;
-    -duration: 4000ms;
     -transition-start: fade-in 1000ms;
     -transition-end: fade-out 500ms;
   }
@@ -64,7 +68,6 @@
   }
   .outro_sound {
     -asset: guitar_music;
-    -duration: 4000ms;
     -offset-start: calc(url(#ending_screen.time.start));
     -transition-end: fade-out 500ms;
   }
