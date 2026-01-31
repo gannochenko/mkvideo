@@ -1,8 +1,9 @@
 import { HTMLParser } from './html-parser.js';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
 import { makeFFmpegCommand, runFFMpeg } from './ffmpeg.js';
 import { getAssetDuration } from './ffprobe.js';
 import { HTMLProjectParser } from './html-project-parser.js';
+import { renderContainers } from './container-renderer.js';
 
 async function main() {
   // Parse the demo project HTML file
@@ -17,29 +18,40 @@ async function main() {
 
   // Use the default output name
   const outputName = 'youtube';
-  const filterBuf = project.build(outputName);
 
   console.log('\n=== Project stats ===\n');
 
   project.printStats();
 
-  // Show fragments with containers
+  // Check for fragments with containers and render them before building
   const sequences = project.getSequenceDefinitions();
   const fragmentsWithContainers = sequences.flatMap((seq) =>
     seq.fragments.filter((frag) => frag.container),
   );
 
   if (fragmentsWithContainers.length > 0) {
-    console.log('\n=== Fragments with Containers ===\n');
-    fragmentsWithContainers.forEach((fragment) => {
-      console.log(`Fragment ID: ${fragment.id}`);
-      console.log(`Container ID: ${fragment.container!.id}`);
-      console.log(
-        `HTML Content: ${fragment.container!.htmlContent.substring(0, 100)}...`,
-      );
-      console.log(`CSS Length: ${project.getCssText().length} characters\n`);
-    });
+    console.log('\n=== Rendering Containers ===\n');
+
+    const output = project.getOutput(outputName);
+    if (!output) {
+      throw new Error(`Output "${outputName}" not found`);
+    }
+
+    const containers = fragmentsWithContainers.map((frag) => frag.container!);
+    const projectDir = dirname(projectPath);
+
+    await renderContainers(
+      containers,
+      project.getCssText(),
+      output.resolution.width,
+      output.resolution.height,
+      projectDir,
+    );
+
+    console.log(`\nRendered ${containers.length} container(s)\n`);
   }
+
+  const filterBuf = project.build(outputName);
 
   const ffmpegCommand = makeFFmpegCommand(
     project,

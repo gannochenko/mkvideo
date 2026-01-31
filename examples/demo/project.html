@@ -11,7 +11,16 @@
   </sequence>
   <sequence>
     <fragment class="intro_image_message">
-      <container> Hello there! </container>
+      <container>
+        <div class="main_container">
+          <div class="main_container_text">
+            <div class="main_container_text_outline">
+              <span>Christmas</span> <span>Morning</span> <span>in</span>
+              <span>Liberec</span>
+            </div>
+          </div>
+        </div>
+      </container>
     </fragment>
   </sequence>
   <sequence>
@@ -20,6 +29,34 @@
 </project>
 
 <style>
+  @import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap");
+
+  .main_container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100vw;
+    height: 100vh;
+    font-family: "Roboto", sans-serif;
+    font-size: 6rem;
+  }
+  .main_container_text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: black;
+  }
+  .main_container_text_outline {
+    width: 80%;
+  }
+  .main_container_text_outline span {
+    background-color: white;
+    padding: 0.5rem 1rem;
+    margin: 0 -1.2rem;
+    border-radius: 2.5rem;
+  }
+
   /* todo: variable support would be cool */
   /* :root {
     --primary-color: #3498db;
@@ -43,7 +80,9 @@
     -transition-end: fade-out 500ms;
   }
   .intro_image_message {
+    -asset: container_8873087433d84074;
     -duration: 4000ms;
+    -transition-end: fade-out 500ms;
   }
   .clip_1 {
     -asset: clip_01;
@@ -101,6 +140,11 @@
   <asset
     data-name="guitar_music"
     data-path="./audio/instrumental-acoustic-guitar-music-401434.mp3"
+    data-author="Baz"
+  />
+  <asset
+    data-name="container_8873087433d84074"
+    data-path="./.cache/containers/8873087433d84074.png"
     data-author="Baz"
   />
 </assets>

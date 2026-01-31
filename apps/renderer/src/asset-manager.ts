@@ -1,3 +1,4 @@
+import { Label } from './ffmpeg';
 import { Asset } from './type';
 
 export class AssetManager {
