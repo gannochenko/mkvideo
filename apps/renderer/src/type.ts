@@ -9,10 +9,15 @@ export type CSSProperties = {
   [key: string]: string;
 };
 
+export type Container = {
+  id: string;
+  htmlContent: string;
+};
+
 export type ParsedHtml = {
   ast: Document;
   css: Map<Element, CSSProperties>;
-  // cssRules: csstree.CssNode;
+  cssText: string; // Full CSS text from <style> tags
 };
 
 export type Asset = {
@@ -50,6 +55,7 @@ export type Fragment = {
   chromakeyBlend: number;
   chromakeySimilarity: number;
   chromakeyColor: string;
+  container?: Container; // Optional container attached to this fragment
 };
 
 export type SequenceDefinition = {

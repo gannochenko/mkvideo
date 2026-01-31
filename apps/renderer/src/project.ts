@@ -1,5 +1,5 @@
 import { Asset, Output, SequenceDefinition } from './type';
-import { Filter, Label } from './ffmpeg';
+import { Label } from './ffmpeg';
 import { AssetManager } from './asset-manager';
 import { Sequence } from './sequence';
 import { FilterBuffer } from './stream';
@@ -12,7 +12,8 @@ export class Project {
   constructor(
     private sequencesDefinitions: SequenceDefinition[],
     assets: Asset[],
-    private output: Output,
+    private outputs: Map<string, Output>,
+    private cssText: string,
   ) {
     this.assetManager = new AssetManager(assets);
     this.expressionContext = {
@@ -20,7 +21,12 @@ export class Project {
     };
   }
 
-  public build(): FilterBuffer {
+  public build(outputName: string): FilterBuffer {
+    const output = this.getOutput(outputName);
+    if (!output) {
+      throw new Error(`Output "${outputName}" not found`);
+    }
+
     let buf = new FilterBuffer();
     let mainSequence: Sequence | null = null;
 
@@ -28,7 +34,7 @@ export class Project {
       const seq = new Sequence(
         buf,
         sequenceDefinition,
-        this.getOutput(),
+        output,
         this.getAssetManager(),
         this.expressionContext,
       );
@@ -61,8 +67,8 @@ export class Project {
   }
 
   public printStats() {
-    this.assetManager.getAssetIndexMap().forEach((key, value) => {
-      const asset = this.assetManager.getAssetByName(value)!;
+    this.assetManager.getAssetIndexMap().forEach((_index, assetName) => {
+      const asset = this.assetManager.getAssetByName(assetName)!;
 
       console.log(
         `Asset "${asset.name}" (${asset.type}) dimensions: w=${asset.width}, h=${asset.height}, rotation: ${asset.rotation}°, duration: ${asset.duration}, hasVideo: ${asset.hasVideo}, hasAudio: ${asset.hasAudio}`,
@@ -74,8 +80,16 @@ export class Project {
     return this.assetManager;
   }
 
-  public getOutput(): Output {
-    return this.output;
+  public getOutput(outputName: string): Output | undefined {
+    return this.outputs.get(outputName);
+  }
+
+  public getCssText(): string {
+    return this.cssText;
+  }
+
+  public getSequenceDefinitions(): SequenceDefinition[] {
+    return this.sequencesDefinitions;
   }
 
   // Delegation methods for convenience

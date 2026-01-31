@@ -47,6 +47,7 @@ export class Filter {
 export function makeFFmpegCommand(
   project: Project,
   filterComplex: string,
+  outputName: string,
 ): string {
   const parts: string[] = ['ffmpeg'];
 
@@ -84,11 +85,16 @@ export function makeFFmpegCommand(
   parts.push('-max_muxing_queue_size 4096');
 
   // Add output parameters
-  const { width, height } = project.getOutput().resolution;
+  const output = project.getOutput(outputName);
+  if (!output) {
+    throw new Error(`Output "${outputName}" not found`);
+  }
+
+  const { width, height } = output.resolution;
 
   // Video encoding parameters
   parts.push(`-s ${width}x${height}`);
-  parts.push(`-r ${project.getOutput().fps}`);
+  parts.push(`-r ${output.fps}`);
   parts.push('-pix_fmt yuv420p'); // Standard pixel format for compatibility
   parts.push('-preset ultrafast'); // Fast encoding for quick results
 
@@ -97,7 +103,7 @@ export function makeFFmpegCommand(
   parts.push('-b:a 192k'); // Audio bitrate
 
   // Add output path
-  parts.push(`"${project.getOutput().path}"`);
+  parts.push(`"${output.path}"`);
 
   return parts.join(' ');
 }

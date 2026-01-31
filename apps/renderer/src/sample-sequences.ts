@@ -7,7 +7,13 @@ export const getSampleSequences = (
   project: Project,
   buf: FilterBuffer,
   expressionContext: ExpressionContext,
+  outputName: string,
 ) => {
+  const output = project.getOutput(outputName);
+  if (!output) {
+    throw new Error(`Output "${outputName}" not found`);
+  }
+
   const seq1 = new Sequence(
     buf,
     {
@@ -129,7 +135,7 @@ export const getSampleSequences = (
         },
       ],
     },
-    project.getOutput(),
+    output,
     project.getAssetManager(),
     expressionContext,
   );
@@ -164,7 +170,7 @@ export const getSampleSequences = (
         },
       ],
     },
-    project.getOutput(),
+    output,
     project.getAssetManager(),
     expressionContext,
   );
@@ -199,7 +205,7 @@ export const getSampleSequences = (
         },
       ],
     },
-    project.getOutput(),
+    output,
     project.getAssetManager(),
     expressionContext,
   );

@@ -45,7 +45,7 @@ export class HTMLParser {
     // Apply styles to all elements
     this.traverseAndApplyStyles(ast, styleRules, elements);
 
-    return { ast, css: elements };
+    return { ast, css: elements, cssText };
   }
 
   /**

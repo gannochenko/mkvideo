@@ -6,6 +6,7 @@ import {
   ASTNode,
   SequenceDefinition,
   Fragment,
+  Container,
 } from './type';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
@@ -30,10 +31,11 @@ export class HTMLProjectParser {
 
   public async parse(): Promise<Project> {
     const assets = await this.processAssets();
-    const output = this.processOutput();
+    const outputs = this.processOutputs();
     const sequences = this.processSequences(assets);
+    const cssText = this.html.cssText;
 
-    return new Project(sequences, assets, output);
+    return new Project(sequences, assets, outputs, cssText);
   }
 
   /**
@@ -370,50 +372,60 @@ export class HTMLProjectParser {
   }
 
   /**
-   * Processes output configuration from the parsed HTML
+   * Processes all output configurations from the parsed HTML
+   * Returns a map of output name => Output definition
    */
-  private processOutput(): Output {
+  private processOutputs(): Map<string, Output> {
     const outputElements = this.findOutputElements();
+    const outputs = new Map<string, Output>();
 
-    // Use first output element, or return defaults if none found
+    // If no outputs found, create default
     if (outputElements.length === 0) {
       console.warn('No output elements found, using defaults');
-      return {
+      const defaultOutput: Output = {
         name: 'output',
         path: resolve(this.projectDir, './output/video.mp4'),
         resolution: { width: 1920, height: 1080 },
         fps: 30,
       };
+      outputs.set(defaultOutput.name, defaultOutput);
+      return outputs;
     }
 
-    const element = outputElements[0];
-    const attrs = new Map(element.attrs.map((attr) => [attr.name, attr.value]));
+    // Process each output element
+    for (const element of outputElements) {
+      const attrs = new Map(element.attrs.map((attr) => [attr.name, attr.value]));
 
-    // Extract name
-    const name = attrs.get('name') || 'output';
+      // Extract name
+      const name = attrs.get('name') || 'output';
 
-    // Extract and resolve path
-    const relativePath = attrs.get('path') || './output/video.mp4';
-    const path = resolve(this.projectDir, relativePath);
+      // Extract and resolve path
+      const relativePath = attrs.get('path') || `./output/${name}.mp4`;
+      const path = resolve(this.projectDir, relativePath);
 
-    // Extract and parse resolution (format: "1920x1080")
-    const resolutionStr = attrs.get('resolution') || '1920x1080';
-    const [widthStr, heightStr] = resolutionStr.split('x');
-    const resolution = {
-      width: parseInt(widthStr, 10) || 1920,
-      height: parseInt(heightStr, 10) || 1080,
-    };
+      // Extract and parse resolution (format: "1920x1080")
+      const resolutionStr = attrs.get('resolution') || '1920x1080';
+      const [widthStr, heightStr] = resolutionStr.split('x');
+      const resolution = {
+        width: parseInt(widthStr, 10) || 1920,
+        height: parseInt(heightStr, 10) || 1080,
+      };
 
-    // Extract fps
-    const fpsStr = attrs.get('fps');
-    const fps = fpsStr ? parseInt(fpsStr, 10) : 30;
+      // Extract fps
+      const fpsStr = attrs.get('fps');
+      const fps = fpsStr ? parseInt(fpsStr, 10) : 30;
 
-    return {
-      name,
-      path,
-      resolution,
-      fps,
-    };
+      const output: Output = {
+        name,
+        path,
+        resolution,
+        fps,
+      };
+
+      outputs.set(name, output);
+    }
+
+    return outputs;
   }
 
   /**
@@ -633,10 +645,13 @@ export class HTMLProjectParser {
     // 3. Check enabled flag from display property
     const enabled = this.parseEnabled(styles['display']);
 
-    // 4. Parse trimLeft from -trim-start property
+    // 4. Extract container if present (first one only)
+    const container = this.extractFragmentContainer(element);
+
+    // 5. Parse trimLeft from -trim-start property
     const trimLeft = this.parseTrimStart(styles['-trim-start']);
 
-    // 5. Parse duration from -duration property
+    // 6. Parse duration from -duration property
     const duration = this.parseDurationProperty(
       styles['-duration'],
       assetName,
@@ -644,32 +659,32 @@ export class HTMLProjectParser {
       trimLeft,
     );
 
-    // 6. Parse -offset-start for overlayLeft (can be number or expression)
+    // 7. Parse -offset-start for overlayLeft (can be number or expression)
     const overlayLeft = this.parseOffsetStart(styles['-offset-start']);
 
-    // 7. Parse -offset-end for overlayRight (temporary, will be normalized)
+    // 8. Parse -offset-end for overlayRight (temporary, will be normalized)
     const overlayRight = this.parseOffsetEnd(styles['-offset-end']);
 
-    // 8. Parse -overlay-start-z-index for overlayZIndex
+    // 9. Parse -overlay-start-z-index for overlayZIndex
     const overlayZIndex = this.parseZIndex(styles['-overlay-start-z-index']);
 
-    // 9. Parse -overlay-end-z-index for overlayZIndexRight (temporary)
+    // 10. Parse -overlay-end-z-index for overlayZIndexRight (temporary)
     const overlayZIndexRight = this.parseZIndex(
       styles['-overlay-end-z-index'],
     );
 
-    // 10. Parse -transition-start
+    // 11. Parse -transition-start
     const transitionIn = this.parseTransitionProperty(
       styles['-transition-start'],
     );
 
-    // 11. Parse -transition-end
+    // 12. Parse -transition-end
     const transitionOut = this.parseTransitionProperty(styles['-transition-end']);
 
-    // 12. Parse -object-fit
+    // 13. Parse -object-fit
     const objectFitData = this.parseObjectFitProperty(styles['-object-fit']);
 
-    // 13. Parse -chromakey
+    // 14. Parse -chromakey
     const chromakeyData = this.parseChromakeyProperty(styles['-chromakey']);
 
     return {
@@ -700,7 +715,84 @@ export class HTMLProjectParser {
       chromakeyBlend: chromakeyData.chromakeyBlend,
       chromakeySimilarity: chromakeyData.chromakeySimilarity,
       chromakeyColor: chromakeyData.chromakeyColor,
+      ...(container && { container }), // Add container if present
     };
+  }
+
+  /**
+   * Extracts the first <container> child from a fragment element
+   */
+  private extractFragmentContainer(element: Element): Container | undefined {
+    // Find first container child
+    if (!('childNodes' in element) || !element.childNodes) {
+      return undefined;
+    }
+
+    for (const child of element.childNodes) {
+      if ('tagName' in child && child.tagName === 'container') {
+        const containerElement = child as Element;
+
+        // Get id attribute
+        const idAttr = containerElement.attrs.find((attr) => attr.name === 'id');
+        const id =
+          idAttr?.value || `container_${Math.random().toString(36).substring(2, 11)}`;
+
+        // Get innerHTML (serialize all children)
+        const htmlContent = this.serializeElement(containerElement);
+
+        return {
+          id,
+          htmlContent,
+        };
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Serializes an element's children to HTML string
+   */
+  private serializeElement(element: Element): string {
+    let html = '';
+
+    const traverse = (node: ASTNode) => {
+      if ('nodeName' in node && node.nodeName === '#text') {
+        // Text node
+        if ('value' in node && typeof node.value === 'string') {
+          html += node.value;
+        }
+      } else if ('tagName' in node) {
+        // Element node
+        const el = node as Element;
+        html += `<${el.tagName}`;
+
+        // Add attributes
+        for (const attr of el.attrs) {
+          html += ` ${attr.name}="${attr.value}"`;
+        }
+
+        html += '>';
+
+        // Process children
+        if ('childNodes' in el && el.childNodes) {
+          for (const child of el.childNodes) {
+            traverse(child);
+          }
+        }
+
+        html += `</${el.tagName}>`;
+      }
+    };
+
+    // Serialize all children
+    if ('childNodes' in element && element.childNodes) {
+      for (const child of element.childNodes) {
+        traverse(child);
+      }
+    }
+
+    return html;
   }
 
   /**

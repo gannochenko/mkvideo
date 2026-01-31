@@ -286,7 +286,14 @@ export class Sequence {
   }
 
   isEmpty() {
-    return !this.definition.fragments.some((fragment) => fragment.enabled);
+    return !this.definition.fragments.some((fragment) => {
+      if (!fragment.enabled) {
+        return false;
+      }
+      // Check if fragment has a valid asset
+      const asset = this.assetManager.getAssetByName(fragment.assetName);
+      return !!asset;
+    });
   }
 
   overlayWith(sequence: Sequence) {

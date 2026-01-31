@@ -10,6 +10,11 @@
     <fragment class="intro_sound" />
   </sequence>
   <sequence>
+    <fragment class="intro_image_message">
+      <container> Hello there! </container>
+    </fragment>
+  </sequence>
+  <sequence>
     <fragment class="outro_sound outro_duration" id="outro_sound" />
   </sequence>
 </project>
@@ -36,6 +41,9 @@
     -asset: intro_image;
     -duration: 4000ms;
     -transition-end: fade-out 500ms;
+  }
+  .intro_image_message {
+    -duration: 4000ms;
   }
   .clip_1 {
     -asset: clip_01;
