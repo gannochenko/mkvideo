@@ -13,11 +13,19 @@ Then it renders a video for the selected output (option -o). If no output specif
 
 If -d is specified, the preset of ffmpeg is set to "ultrafast", otherwise it is "medium".
 
+If the output folder does not exist, create it.
+
 # Bootstrap
 
 staticvid bootstrap -n "project-name"
 
 Will create a folder with the provided project name, and copy the contents of the template folder there.
+
+# Adding assets
+
+staticvid add-assets -p path-to-project/
+
+Will search for any mp3, mp4, jpg, png files in the project folder (current project if not specified), then the findings should be sorted by name asc, and added relative paths to the files as assets to the project.html file. The 'data-name' attribute is chosen numerically, as per the sorting order: clip_N for video, track_N for audio, image_N for images.
 
 # Upload
 
