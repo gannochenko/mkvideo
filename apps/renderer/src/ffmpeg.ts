@@ -48,6 +48,7 @@ export function makeFFmpegCommand(
   project: Project,
   filterComplex: string,
   outputName: string,
+  preset: 'ultrafast' | 'medium' = 'medium',
 ): string {
   const parts: string[] = ['ffmpeg'];
 
@@ -96,7 +97,7 @@ export function makeFFmpegCommand(
   parts.push(`-s ${width}x${height}`);
   parts.push(`-r ${output.fps}`);
   parts.push('-pix_fmt yuv420p'); // Standard pixel format for compatibility
-  parts.push('-preset ultrafast'); // Fast encoding for quick results
+  parts.push(`-preset ${preset}`); // Encoding speed preset
 
   // Audio encoding parameters
   parts.push('-c:a aac'); // AAC audio codec

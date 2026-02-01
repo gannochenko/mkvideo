@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "Video project renderer",
   "main": "dist/index.js",
+  "bin": {
+    "staticvid": "./dist/cli.js"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
@@ -37,6 +40,7 @@
   },
   "dependencies": {
     "@types/css-tree": "^2.3.11",
+    "commander": "^14.0.3",
     "css-tree": "^3.1.0",
     "expr-eval": "^2.0.2",
     "jsdom": "^25.0.1",

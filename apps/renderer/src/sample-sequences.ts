@@ -3,7 +3,6 @@ import { Project } from './project';
 import { Sequence } from './sequence';
 import { FilterBuffer } from './stream';
 
-// @ts-expect-error unused
 export const getSampleSequences = (
   project: Project,
   buf: FilterBuffer,

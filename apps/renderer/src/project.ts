@@ -89,6 +89,10 @@ export class Project {
     return this.outputs.get(outputName);
   }
 
+  public getOutputs(): Map<string, Output> {
+    return this.outputs;
+  }
+
   public getCssText(): string {
     return this.cssText;
   }
