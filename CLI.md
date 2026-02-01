@@ -13,6 +13,12 @@ Then it renders a video for the selected output (option -o). If no output specif
 
 If -d is specified, the preset of ffmpeg is set to "ultrafast", otherwise it is "medium".
 
+# Bootstrap
+
+staticvid bootstrap -n "project-name"
+
+Will create a folder with the provided project name, and copy the contents of the template folder there.
+
 # Upload
 
 staticvid upload -p path-to-project/ -u youtube
