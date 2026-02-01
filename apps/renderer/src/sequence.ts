@@ -111,6 +111,17 @@ export class Sequence {
           );
         }
       }
+
+      // Apply visual filter early for static images (before padding/cloning)
+      // This is more efficient as ffmpeg processes the filter once, then clones the filtered frame
+      if (
+        asset.hasVideo &&
+        asset.type === 'image' &&
+        fragment.visualFilter
+      ) {
+        currentVideoStream.filter(fragment.visualFilter as VisualFilter);
+      }
+
       if (
         asset.duration === 0 &&
         fragment.duration > 0 &&
@@ -159,8 +170,8 @@ export class Sequence {
           });
         }
 
-        // visual filter
-        if (fragment.visualFilter) {
+        // visual filter (for video assets - images are filtered earlier before padding)
+        if (fragment.visualFilter && asset.type !== 'image') {
           currentVideoStream.filter(fragment.visualFilter as VisualFilter);
         }
       }

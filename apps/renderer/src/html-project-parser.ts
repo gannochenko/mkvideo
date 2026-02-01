@@ -687,8 +687,8 @@ export class HTMLProjectParser {
     // 14. Parse -chromakey
     const chromakeyData = this.parseChromakeyProperty(styles['-chromakey']);
 
-    // 15. Parse -visual-filter
-    const visualFilter = this.parseVisualFilterProperty(styles['-visual-filter']);
+    // 15. Parse filter (for visual filters)
+    const visualFilter = this.parseVisualFilterProperty(styles['filter']);
 
     return {
       id,
@@ -724,7 +724,7 @@ export class HTMLProjectParser {
   }
 
   /**
-   * Parses -visual-filter property
+   * Parses filter property (for visual filters)
    * Format: "<filter-name>"
    * Example: "instagram-nashville", "instagram-moon"
    */
