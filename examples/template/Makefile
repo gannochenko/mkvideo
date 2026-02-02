@@ -1,8 +1,14 @@
-test:
-	@staticvid generate --output youtube -d
+prev:
+	@staticstripes generate --output youtube -d
 
 gen:
-	@staticvid generate
+	@staticstripes generate
 
 upload:
-	@staticvid upload
+	@staticstripes upload
+
+open:
+	@open ./
+
+add-assets:
+	@staticstripes add-assets

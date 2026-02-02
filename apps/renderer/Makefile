@@ -67,33 +67,3 @@ clean-cache:
 
 # Full build
 all: install build
-
-# Show help
-help:
-	@echo "Available targets:"
-	@echo "  make install         - Install dependencies"
-	@echo "  make build           - Build the project"
-	@echo "  make link            - Install CLI globally (enables 'staticvid' command)"
-	@echo "  make unlink          - Remove global CLI installation"
-	@echo "  make lint            - Run linter"
-	@echo "  make lint-fix        - Run linter with auto-fix"
-	@echo "  make format          - Format code"
-	@echo "  make format-check    - Check code formatting"
-	@echo "  make test            - Run tests"
-	@echo "  make test-ui         - Run tests with UI"
-	@echo "  make demo            - Generate demo video (fast, for development)"
-	@echo "  make demo-prod       - Generate demo video (production quality)"
-	@echo "  make demo-all        - Generate all demo outputs (fast)"
-	@echo "  make demo-all-prod   - Generate all demo outputs (production)"
-	@echo "  make clean           - Clean build artifacts"
-	@echo "  make clean-cache     - Clean demo project cache"
-	@echo "  make all             - Install and build"
-	@echo ""
-	@echo "Quick Start:"
-	@echo "  make all && make link    - Build and install globally"
-	@echo "  staticvid generate -p . -o youtube -d"
-	@echo ""
-	@echo "CLI Usage:"
-	@echo "  staticvid generate -p <project-path> -o <output>"
-	@echo "  staticvid generate -p <project-path> -o <output> -d  # fast preset"
-	@echo "  staticvid --help"

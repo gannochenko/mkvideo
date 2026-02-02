@@ -1,5 +1,5 @@
 {
-  "name": "@mkvideo/renderer",
+  "name": "@gannochenko/staticstripes",
   "version": "0.1.0",
   "description": "Video project renderer",
   "main": "dist/index.js",
