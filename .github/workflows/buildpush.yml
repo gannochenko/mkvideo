@@ -1,0 +1,44 @@
+name: Build & Push
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 23
+          cache: "npm"
+
+      - name: Install dependencies
+        run: |
+          npm install
+          npx install-self-peers
+
+      - name: Build
+        run: npm run build
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Sync version with release tag
+        run: npm version $(echo ${GITHUB_REF##*/} | sed 's/^v//') --no-git-tag-version
+
+      - name: Authenticate with npm
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+
+      - name: Publish to npm
+        run: npm publish
+
+      - name: Success notification
+        run: echo "Package successfully published!"

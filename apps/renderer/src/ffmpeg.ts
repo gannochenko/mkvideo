@@ -7,6 +7,54 @@ export type Label = {
   isAudio: boolean; // false for video, true for audio
 };
 
+/**
+ * Checks if FFmpeg is installed and available in the system PATH
+ * @throws Error if FFmpeg is not found
+ */
+export async function checkFFmpegInstalled(): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const ffmpeg = spawn('ffmpeg', ['-version'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let hasOutput = false;
+
+    ffmpeg.stdout.on('data', () => {
+      hasOutput = true;
+    });
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0 && hasOutput) {
+        resolve();
+      } else {
+        reject(
+          new Error(
+            'FFmpeg not found. Please install FFmpeg to use StaticStripes.\n' +
+              'Visit https://ffmpeg.org/download.html for installation instructions.',
+          ),
+        );
+      }
+    });
+
+    ffmpeg.on('error', (error) => {
+      if (error.message.includes('ENOENT')) {
+        reject(
+          new Error(
+            'FFmpeg not found in system PATH. Please install FFmpeg to use StaticStripes.\n' +
+              'Visit https://ffmpeg.org/download.html for installation instructions.\n\n' +
+              'Quick install:\n' +
+              '  macOS:          brew install ffmpeg\n' +
+              '  Ubuntu/Debian:  sudo apt-get install ffmpeg\n' +
+              '  Windows:        Download from https://ffmpeg.org/download.html',
+          ),
+        );
+      } else {
+        reject(error);
+      }
+    });
+  });
+}
+
 export type Millisecond = number;
 
 /**

@@ -28,6 +28,30 @@
 - **Development mode** - Fast preview rendering with ultrafast encoding preset
 - **TypeScript** - Fully typed codebase for better developer experience
 
+## Requirements
+
+**StaticStripes requires FFmpeg to be installed on your system.**
+
+FFmpeg is a powerful multimedia framework that handles all video processing operations. You must have it installed and available in your system PATH before using StaticStripes.
+
+### Installing FFmpeg
+
+**Download and installation instructions:**
+👉 [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html)
+
+**Quick installation:**
+
+- **macOS:** `brew install ffmpeg`
+- **Ubuntu/Debian:** `sudo apt-get install ffmpeg`
+- **Windows:** Download from [ffmpeg.org](https://ffmpeg.org/download.html) and add to PATH
+
+**Verify installation:**
+```bash
+ffmpeg -version
+```
+
+If FFmpeg is properly installed, this command will display version information.
+
 ## Installation
 
 ### Global Installation
@@ -219,7 +243,7 @@ The `project.html` file uses a custom HTML-based syntax:
 ### Prerequisites
 
 - Node.js 18+
-- FFmpeg installed and available in PATH
+- [FFmpeg](https://ffmpeg.org/download.html) installed and available in PATH
 - TypeScript 5.7+
 
 ### Setup

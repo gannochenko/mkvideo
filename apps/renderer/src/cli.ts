@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, cpSync, realpathSync, readdirSync, readFileSync,
 import { join } from 'path';
 import { HTMLParser } from './html-parser.js';
 import { HTMLProjectParser } from './html-project-parser.js';
-import { makeFFmpegCommand, runFFMpeg } from './ffmpeg.js';
+import { makeFFmpegCommand, runFFMpeg, checkFFmpegInstalled } from './ffmpeg.js';
 import { getAssetDuration } from './ffprobe.js';
 
 const program = new Command();
@@ -24,6 +24,11 @@ program
   .option('-d, --dev', 'Use fast encoding preset for development (ultrafast)')
   .action(async (options) => {
     try {
+      // Check if FFmpeg is installed
+      console.log('🔍 Checking for FFmpeg...');
+      await checkFFmpegInstalled();
+      console.log('✅ FFmpeg found\n');
+
       // Resolve project path
       const projectPath = resolve(process.cwd(), options.project);
       const projectFilePath = resolve(projectPath, 'project.html');
