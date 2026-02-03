@@ -139,6 +139,12 @@ program
         // Generate FFmpeg command with appropriate preset
         const ffmpegCommand = makeFFmpegCommand(project, filter, outputName, preset);
 
+        if (isDebugMode) {
+          console.log('\n=== FFmpeg Command ===\n');
+          console.log(ffmpegCommand);
+          console.log('\n======================\n');
+        }
+
         console.log('\n=== Starting Render ===\n');
 
         // Run FFmpeg

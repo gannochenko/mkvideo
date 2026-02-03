@@ -105,11 +105,23 @@ export function makeFFmpegCommand(
 
   // Add input files in order of their index mapping
   const inputsByIndex = new Map<number, string>();
+  const missingAssets: string[] = [];
+
   for (const [assetName, index] of project.getAssetIndexMap()) {
     const asset = project.getAssetByName(assetName);
     if (asset) {
       inputsByIndex.set(index, asset.path);
+    } else {
+      missingAssets.push(`${assetName} (index ${index})`);
     }
+  }
+
+  // Validate that all referenced assets exist
+  if (missingAssets.length > 0) {
+    throw new Error(
+      `Filter graph references assets that don't exist:\n${missingAssets.map(a => `  - ${a}`).join('\n')}\n\n` +
+      `This is likely a bug in the filter graph generation. Please report this issue.`
+    );
   }
 
   // Add inputs in sorted order
