@@ -30,9 +30,13 @@
 
 ## Requirements
 
-**StaticStripes requires FFmpeg to be installed on your system.**
+**StaticStripes requires the following to be installed on your system:**
 
-FFmpeg is a powerful multimedia framework that handles all video processing operations. You must have it installed and available in your system PATH before using StaticStripes.
+1. **Node.js 22.0.0 or higher** - Required for modern JavaScript features
+2. **npm 10.0.0 or higher** - Package manager
+3. **FFmpeg** - Powerful multimedia framework that handles all video processing operations
+
+All three must be installed and available in your system PATH before using StaticStripes.
 
 ### Installing FFmpeg
 
@@ -251,9 +255,10 @@ StaticStripes is fully cross-platform and works on:
 
 ### Prerequisites
 
-- Node.js 18+
+- **Node.js 22+** (required - the package will not work with older versions)
+- **npm 10+**
 - [FFmpeg](https://ffmpeg.org/download.html) installed and available in PATH
-- TypeScript 5.7+
+- TypeScript 5.7+ (for development)
 
 ### Setup
 

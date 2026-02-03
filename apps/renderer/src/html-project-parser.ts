@@ -11,11 +11,9 @@ import {
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { resolve, dirname } from 'path';
+import { existsSync } from 'fs';
 import { Project } from './project';
-import {
-  parseValueLazy,
-  CompiledExpression,
-} from './expression-parser';
+import { parseValueLazy, CompiledExpression } from './expression-parser';
 
 const execFileAsync = promisify(execFile);
 
@@ -31,11 +29,36 @@ export class HTMLProjectParser {
 
   public async parse(): Promise<Project> {
     const assets = await this.processAssets();
+
+    // Preflight check: verify all assets exist
+    this.validateAssetFiles(assets);
+
     const outputs = this.processOutputs();
     const sequences = this.processSequences(assets);
     const cssText = this.html.cssText;
 
     return new Project(sequences, assets, outputs, cssText, this.projectPath);
+  }
+
+  /**
+   * Validates that all asset files exist on the filesystem
+   * Throws an error with a list of missing files if any are not found
+   */
+  private validateAssetFiles(assets: Asset[]): void {
+    const missingFiles: string[] = [];
+
+    for (const asset of assets) {
+      if (!existsSync(asset.path)) {
+        missingFiles.push(asset.path);
+      }
+    }
+
+    if (missingFiles.length > 0) {
+      const fileList = missingFiles.map(f => `  - ${f}`).join('\n');
+      throw new Error(
+        `Asset file(s) not found:\n${fileList}\n\nPlease check that all asset paths in project.html are correct.`
+      );
+    }
   }
 
   /**
@@ -193,28 +216,22 @@ export class HTMLProjectParser {
       return 0;
     }
 
-    try {
-      const { stdout } = await execFileAsync('ffprobe', [
-        '-v',
-        'error',
-        '-show_entries',
-        'format=duration',
-        '-of',
-        'default=noprint_wrappers=1:nokey=1',
-        path,
-      ]);
+    const { stdout } = await execFileAsync('ffprobe', [
+      '-v',
+      'error',
+      '-show_entries',
+      'format=duration',
+      '-of',
+      'default=noprint_wrappers=1:nokey=1',
+      path,
+    ]);
 
-      const durationSeconds = parseFloat(stdout.trim());
-      if (isNaN(durationSeconds)) {
-        console.warn(`Could not parse duration for asset: ${path}`);
-        return 0;
-      }
-
-      return Math.round(durationSeconds * 1000);
-    } catch (error) {
-      console.error(`Failed to get duration for asset: ${path}`, error);
-      return 0;
+    const durationSeconds = parseFloat(stdout.trim());
+    if (isNaN(durationSeconds)) {
+      throw new Error(`Could not parse duration for asset: ${path}`);
     }
+
+    return Math.round(durationSeconds * 1000);
   }
 
   /**
@@ -232,33 +249,28 @@ export class HTMLProjectParser {
       return 0;
     }
 
-    try {
-      const { stdout } = await execFileAsync('ffprobe', [
-        '-v',
-        'error',
-        '-select_streams',
-        'v:0',
-        '-show_entries',
-        'stream_side_data=rotation',
-        '-of',
-        'default=noprint_wrappers=1:nokey=1',
-        path,
-      ]);
+    const { stdout } = await execFileAsync('ffprobe', [
+      '-v',
+      'error',
+      '-select_streams',
+      'v:0',
+      '-show_entries',
+      'stream_side_data=rotation',
+      '-of',
+      'default=noprint_wrappers=1:nokey=1',
+      path,
+    ]);
 
-      const rotation = parseInt(stdout.trim(), 10);
+    const rotation = parseInt(stdout.trim(), 10);
 
-      if (isNaN(rotation)) {
-        // No rotation metadata found
-        return 0;
-      }
-
-      // Normalize to 0, 90, 180, 270
-      const normalized = Math.abs(rotation) % 360;
-      return normalized;
-    } catch (error) {
-      // No rotation metadata or error - default to 0
+    if (isNaN(rotation)) {
+      // No rotation metadata found
       return 0;
     }
+
+    // Normalize to 0, 90, 180, 270
+    const normalized = Math.abs(rotation) % 360;
+    return normalized;
   }
 
   /**
@@ -276,34 +288,28 @@ export class HTMLProjectParser {
       return { width: 0, height: 0 };
     }
 
-    try {
-      const { stdout } = await execFileAsync('ffprobe', [
-        '-v',
-        'error',
-        '-select_streams',
-        'v:0',
-        '-show_entries',
-        'stream=width,height',
-        '-of',
-        'csv=s=x:p=0',
-        path,
-      ]);
+    const { stdout } = await execFileAsync('ffprobe', [
+      '-v',
+      'error',
+      '-select_streams',
+      'v:0',
+      '-show_entries',
+      'stream=width,height',
+      '-of',
+      'csv=s=x:p=0',
+      path,
+    ]);
 
-      const dimensions = stdout.trim();
-      const [widthStr, heightStr] = dimensions.split('x');
-      const width = parseInt(widthStr, 10);
-      const height = parseInt(heightStr, 10);
+    const dimensions = stdout.trim();
+    const [widthStr, heightStr] = dimensions.split('x');
+    const width = parseInt(widthStr, 10);
+    const height = parseInt(heightStr, 10);
 
-      if (isNaN(width) || isNaN(height)) {
-        console.warn(`Could not parse dimensions for asset: ${path}`);
-        return { width: 0, height: 0 };
-      }
-
-      return { width, height };
-    } catch (error) {
-      console.error(`Failed to get dimensions for asset: ${path}`, error);
-      return { width: 0, height: 0 };
+    if (isNaN(width) || isNaN(height)) {
+      throw new Error(`Could not parse dimensions for: ${path}`);
     }
+
+    return { width, height };
   }
 
   /**
@@ -350,25 +356,20 @@ export class HTMLProjectParser {
     }
 
     // For video, probe for audio stream
-    try {
-      const { stdout } = await execFileAsync('ffprobe', [
-        '-v',
-        'error',
-        '-select_streams',
-        'a:0',
-        '-show_entries',
-        'stream=codec_type',
-        '-of',
-        'default=noprint_wrappers=1:nokey=1',
-        path,
-      ]);
+    const { stdout } = await execFileAsync('ffprobe', [
+      '-v',
+      'error',
+      '-select_streams',
+      'a:0',
+      '-show_entries',
+      'stream=codec_type',
+      '-of',
+      'default=noprint_wrappers=1:nokey=1',
+      path,
+    ]);
 
-      // If we get output, an audio stream exists
-      return stdout.trim() === 'audio';
-    } catch (error) {
-      // No audio stream or error
-      return false;
-    }
+    // If we get output, an audio stream exists
+    return stdout.trim() === 'audio';
   }
 
   /**
@@ -394,7 +395,9 @@ export class HTMLProjectParser {
 
     // Process each output element
     for (const element of outputElements) {
-      const attrs = new Map(element.attrs.map((attr) => [attr.name, attr.value]));
+      const attrs = new Map(
+        element.attrs.map((attr) => [attr.name, attr.value]),
+      );
 
       // Extract name
       const name = attrs.get('name') || 'output';
@@ -628,16 +631,19 @@ export class HTMLProjectParser {
   private processFragment(
     element: Element,
     assets: Map<string, Asset>,
-  ): (Fragment & {
-    overlayRight: number | CompiledExpression;
-    overlayZIndexRight: number;
-  }) | null {
+  ):
+    | (Fragment & {
+        overlayRight: number | CompiledExpression;
+        overlayZIndexRight: number;
+      })
+    | null {
     const attrs = new Map(element.attrs.map((attr) => [attr.name, attr.value]));
     const styles = this.html.css.get(element) || {};
 
     // 1. Extract fragment ID from id attribute or generate one
     const id =
-      attrs.get('id') || `fragment_${Math.random().toString(36).substring(2, 11)}`;
+      attrs.get('id') ||
+      `fragment_${Math.random().toString(36).substring(2, 11)}`;
 
     // 2. Extract assetName from attribute or CSS -asset property
     const assetName = attrs.get('data-asset') || styles['-asset'] || '';
@@ -669,9 +675,7 @@ export class HTMLProjectParser {
     const overlayZIndex = this.parseZIndex(styles['-overlay-start-z-index']);
 
     // 10. Parse -overlay-end-z-index for overlayZIndexRight (temporary)
-    const overlayZIndexRight = this.parseZIndex(
-      styles['-overlay-end-z-index'],
-    );
+    const overlayZIndexRight = this.parseZIndex(styles['-overlay-end-z-index']);
 
     // 11. Parse -transition-start
     const transitionIn = this.parseTransitionProperty(
@@ -679,7 +683,9 @@ export class HTMLProjectParser {
     );
 
     // 12. Parse -transition-end
-    const transitionOut = this.parseTransitionProperty(styles['-transition-end']);
+    const transitionOut = this.parseTransitionProperty(
+      styles['-transition-end'],
+    );
 
     // 13. Parse -object-fit
     const objectFitData = this.parseObjectFitProperty(styles['-object-fit']);
@@ -756,9 +762,12 @@ export class HTMLProjectParser {
         const containerElement = child as Element;
 
         // Get id attribute
-        const idAttr = containerElement.attrs.find((attr) => attr.name === 'id');
+        const idAttr = containerElement.attrs.find(
+          (attr) => attr.name === 'id',
+        );
         const id =
-          idAttr?.value || `container_${Math.random().toString(36).substring(2, 11)}`;
+          idAttr?.value ||
+          `container_${Math.random().toString(36).substring(2, 11)}`;
 
         // Get innerHTML (serialize all children)
         const htmlContent = this.serializeElement(containerElement);
@@ -958,12 +967,7 @@ export class HTMLProjectParser {
 
     // Check if it's a calc() expression
     if (trimmed.startsWith('calc(')) {
-      try {
-        return parseValueLazy(trimmed) as CompiledExpression;
-      } catch (error) {
-        console.error(`Failed to parse -offset-start expression: ${trimmed}`, error);
-        return 0;
-      }
+      return parseValueLazy(trimmed) as CompiledExpression;
     }
 
     // Otherwise parse as time value
@@ -985,12 +989,7 @@ export class HTMLProjectParser {
 
     // Check if it's a calc() expression
     if (trimmed.startsWith('calc(')) {
-      try {
-        return parseValueLazy(trimmed) as CompiledExpression;
-      } catch (error) {
-        console.error(`Failed to parse -offset-end expression: ${trimmed}`, error);
-        return 0;
-      }
+      return parseValueLazy(trimmed) as CompiledExpression;
     }
 
     // Otherwise parse as time value
@@ -1014,9 +1013,10 @@ export class HTMLProjectParser {
    * Format: "<transition-name> <duration>"
    * Example: "fade-in 5s", "fade-out 500ms"
    */
-  private parseTransitionProperty(
-    transition: string | undefined,
-  ): { name: string; duration: number } {
+  private parseTransitionProperty(transition: string | undefined): {
+    name: string;
+    duration: number;
+  } {
     if (!transition) {
       return { name: '', duration: 0 };
     }
@@ -1087,7 +1087,9 @@ export class HTMLProjectParser {
 
       // "contain ambient <blur> <brightness> <saturation>"
       if (subType === 'ambient') {
-        const blur = parts[2] ? parseFloat(parts[2]) : defaults.objectFitContainAmbientBlurStrength;
+        const blur = parts[2]
+          ? parseFloat(parts[2])
+          : defaults.objectFitContainAmbientBlurStrength;
         const brightness = parts[3]
           ? parseFloat(parts[3])
           : defaults.objectFitContainAmbientBrightness;
@@ -1099,7 +1101,9 @@ export class HTMLProjectParser {
           ...defaults,
           objectFit: 'contain',
           objectFitContain: 'ambient',
-          objectFitContainAmbientBlurStrength: isNaN(blur) ? defaults.objectFitContainAmbientBlurStrength : blur,
+          objectFitContainAmbientBlurStrength: isNaN(blur)
+            ? defaults.objectFitContainAmbientBlurStrength
+            : blur,
           objectFitContainAmbientBrightness: isNaN(brightness)
             ? defaults.objectFitContainAmbientBrightness
             : brightness,

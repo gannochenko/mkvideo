@@ -11,10 +11,45 @@ import { getAssetDuration } from './ffprobe.js';
 
 const program = new Command();
 
+// Global debug flag
+let isDebugMode = false;
+
+/**
+ * Pretty prints an error to the user
+ */
+function handleError(error: any, operation: string) {
+  console.error(`\n❌ ${operation} failed\n`);
+
+  if (error.message) {
+    console.error(`Error: ${error.message}\n`);
+  }
+
+  if (isDebugMode) {
+    console.error('=== Debug Information ===\n');
+    console.error('Full error object:', error);
+    if (error.stack) {
+      console.error('\nStack trace:');
+      console.error(error.stack);
+    }
+    console.error('\n========================\n');
+  } else {
+    console.error('💡 Tip: Run with --debug flag for detailed error information\n');
+  }
+}
+
 program
   .name('staticstripes')
   .description('CLI tool for rendering video projects')
-  .version('0.1.0');
+  .version('0.1.0')
+  .option('--debug', 'Enable debug mode with detailed error messages')
+  .hook('preAction', (thisCommand) => {
+    // Check if --debug flag is set on any command
+    const opts = thisCommand.opts();
+    if (opts.debug) {
+      isDebugMode = true;
+      console.log('🐛 Debug mode enabled\n');
+    }
+  });
 
 program
   .command('generate')
@@ -118,7 +153,7 @@ program
 
       console.log('\n🎉 All outputs rendered successfully!\n');
     } catch (error) {
-      console.error('\n❌ Error:', error);
+      handleError(error, 'Video generation');
       process.exit(1);
     }
   });
@@ -176,7 +211,7 @@ program
       console.log('  # Edit project.html to customize your video');
       console.log(`  staticstripes generate -p . -o youtube -d\n`);
     } catch (error) {
-      console.error('\n❌ Error:', error);
+      handleError(error, 'Project bootstrap');
       process.exit(1);
     }
   });
@@ -298,7 +333,7 @@ program
 
       console.log(`\n✅ Assets added to ${projectFilePath}`);
     } catch (error) {
-      console.error('\n❌ Error:', error);
+      handleError(error, 'Asset scanning');
       process.exit(1);
     }
   });
