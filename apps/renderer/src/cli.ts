@@ -9,6 +9,12 @@ import { HTMLProjectParser } from './html-project-parser.js';
 import { makeFFmpegCommand, runFFMpeg, checkFFmpegInstalled } from './ffmpeg.js';
 import { getAssetDuration } from './ffprobe.js';
 
+// Read version from package.json
+// In built code, this file is at dist/cli.js, package.json is at ../package.json
+const packageJsonPath = resolve(__dirname, '../package.json');
+const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+const version = packageJson.version;
+
 const program = new Command();
 
 // Global debug flag
@@ -40,7 +46,7 @@ function handleError(error: any, operation: string) {
 program
   .name('staticstripes')
   .description('CLI tool for rendering video projects')
-  .version('0.1.0')
+  .version(version)
   .option('--debug', 'Enable debug mode with detailed error messages')
   .hook('preAction', (thisCommand) => {
     // Check if --debug flag is set on any command
