@@ -21,6 +21,7 @@ import {
   checkFFmpegInstalled,
 } from './ffmpeg.js';
 import { getAssetDuration } from './ffprobe.js';
+import { cleanupStaleCache } from './container-renderer.js';
 
 // Read version from package.json
 // In built code, this file is at dist/cli.js, package.json is at ../package.json
@@ -80,10 +81,9 @@ program
     '-o, --output <name>',
     'Output name to render (renders all if not specified)',
   )
-  .option('--preview', 'Use fast encoding preset for development (ultrafast)')
   .option(
-    '--ffmpeg-args <args>',
-    'Extra FFmpeg arguments to append (e.g., "-crf 23 -tune film")',
+    '--option <name>',
+    'FFmpeg option preset to use (from project.html <ffmpeg> section)',
   )
   .action(async (options) => {
     try {
@@ -130,10 +130,11 @@ program
         process.exit(1);
       }
 
-      // Determine encoding preset based on -d flag
-      const preset = options.dev ? 'ultrafast' : 'medium';
-      console.log(`⚡ Encoding preset: ${preset}`);
+      // Log which outputs will be rendered
       console.log(`🎬 Rendering outputs: ${outputsToRender.join(', ')}\n`);
+
+      // Create a shared cache key store for all outputs
+      const activeCacheKeys = new Set<string>();
 
       // Render each output
       for (const outputName of outputsToRender) {
@@ -160,8 +161,8 @@ program
           mkdirSync(outputDir, { recursive: true });
         }
 
-        // Render containers for this output
-        await project.renderContainers(outputName);
+        // Render containers for this output (accumulate cache keys)
+        await project.renderContainers(outputName, activeCacheKeys);
 
         // Print project statistics
         project.printStats();
@@ -170,13 +171,46 @@ program
         const filterBuf = await project.build(outputName);
         const filter = filterBuf.render();
 
-        // Generate FFmpeg command with appropriate preset
+        // Determine FFmpeg arguments to use
+        let ffmpegArgs: string;
+        const defaultArgs =
+          '-pix_fmt yuv420p -preset medium -c:a aac -b:a 192k';
+
+        if (options.option) {
+          // User specified an option name, look it up in project
+          const ffmpegOption = project.getFfmpegOption(options.option);
+          if (!ffmpegOption) {
+            const availableOptions = Array.from(
+              project.getFfmpegOptions().keys(),
+            );
+            console.error(
+              `Error: FFmpeg option "${options.option}" not found in project.html`,
+            );
+            if (availableOptions.length > 0) {
+              console.error(
+                `Available options: ${availableOptions.join(', ')}`,
+              );
+            } else {
+              console.error(
+                'No FFmpeg options defined in project.html <ffmpeg> section',
+              );
+            }
+            process.exit(1);
+          }
+          ffmpegArgs = ffmpegOption.args;
+          console.log(`⚡ Using FFmpeg option: ${options.option}`);
+        } else {
+          // No option specified, use default
+          ffmpegArgs = defaultArgs;
+          console.log(`⚡ Using default FFmpeg arguments`);
+        }
+
+        // Generate FFmpeg command
         const ffmpegCommand = makeFFmpegCommand(
           project,
           filter,
           outputName,
-          preset,
-          options.ffmpegArgs,
+          ffmpegArgs,
         );
 
         if (isDebugMode) {
@@ -195,6 +229,12 @@ program
 
         const resultDuration = await getAssetDuration(resultPath);
         console.log(`⏱️  Duration: ${resultDuration}ms`);
+      }
+
+      // Clean up stale cache entries after all outputs are rendered
+      if (activeCacheKeys.size > 0) {
+        console.log('\n=== Cleaning up stale cache ===\n');
+        await cleanupStaleCache(projectPath, activeCacheKeys);
       }
 
       console.log('\n🎉 All outputs rendered successfully!\n');

@@ -7,6 +7,7 @@ import {
   SequenceDefinition,
   Fragment,
   Container,
+  FFmpegOption,
 } from './type';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
@@ -34,10 +35,18 @@ export class HTMLProjectParser {
     this.validateAssetFiles(assets);
 
     const outputs = this.processOutputs();
+    const ffmpegOptions = this.processFfmpegOptions();
     const sequences = this.processSequences(assets);
     const cssText = this.html.cssText;
 
-    return new Project(sequences, assets, outputs, cssText, this.projectPath);
+    return new Project(
+      sequences,
+      assets,
+      outputs,
+      ffmpegOptions,
+      cssText,
+      this.projectPath,
+    );
   }
 
   /**
@@ -443,6 +452,85 @@ export class HTMLProjectParser {
 
         // Check if element is an <output> tag
         if (element.tagName === 'output') {
+          results.push(element);
+        }
+      }
+
+      if ('childNodes' in node && node.childNodes) {
+        for (const child of node.childNodes) {
+          traverse(child);
+        }
+      }
+    };
+
+    traverse(this.html.ast);
+    return results;
+  }
+
+  /**
+   * Processes ffmpeg options from the parsed HTML
+   */
+  private processFfmpegOptions(): Map<string, FFmpegOption> {
+    const ffmpegElements = this.findFfmpegElements();
+    const options = new Map<string, FFmpegOption>();
+
+    // Process each <ffmpeg> element (should typically be only one)
+    for (const ffmpegElement of ffmpegElements) {
+      // Find all <option> child elements
+      if ('childNodes' in ffmpegElement && ffmpegElement.childNodes) {
+        for (const child of ffmpegElement.childNodes) {
+          if ('tagName' in child) {
+            const childElement = child as Element;
+            if (childElement.tagName === 'option') {
+              const attrs = new Map(
+                childElement.attrs.map((attr) => [attr.name, attr.value]),
+              );
+
+              const name = attrs.get('name');
+              if (!name) {
+                continue; // Skip options without name
+              }
+
+              // Get the text content (the FFmpeg arguments)
+              let args = '';
+              if ('childNodes' in childElement && childElement.childNodes) {
+                for (const textNode of childElement.childNodes) {
+                  if ('value' in textNode) {
+                    args += textNode.value;
+                  }
+                }
+              }
+
+              // Trim whitespace
+              args = args.trim();
+
+              const option: FFmpegOption = {
+                name,
+                args,
+              };
+
+              options.set(name, option);
+            }
+          }
+        }
+      }
+    }
+
+    return options;
+  }
+
+  /**
+   * Finds all ffmpeg elements in the HTML
+   */
+  private findFfmpegElements(): Element[] {
+    const results: Element[] = [];
+
+    const traverse = (node: ASTNode) => {
+      if ('tagName' in node) {
+        const element = node as Element;
+
+        // Check if element is an <ffmpeg> tag
+        if (element.tagName === 'ffmpeg') {
           results.push(element);
         }
       }

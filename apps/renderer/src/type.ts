@@ -73,6 +73,11 @@ export type Output = {
   fps: number; // e.g. 30
 };
 
+export type FFmpegOption = {
+  name: string; // e.g. "preview", "production"
+  args: string; // e.g. "-c:v h264_nvenc -preset fast"
+};
+
 export type ProjectStructure = {
   sequences: SequenceDefinition[];
   assets: Map<string, Asset>;

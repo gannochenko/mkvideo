@@ -40,21 +40,21 @@ test:
 test-ui:
 	npm run test:ui
 
-# Generate demo video (youtube output) with fast preset for development
+# Generate demo video (youtube output) with preview preset
 demo:
-	node dist/cli.js generate -p ../../examples/demo -o youtube -d
+	node dist/cli.js generate -p ../../examples/demo -o youtube --option meh --debug
 
-# Generate demo video with production quality (medium preset)
+# Generate demo video with production quality
 demo-prod:
-	node dist/cli.js generate -p ../../examples/demo -o youtube
+	node dist/cli.js generate -p ../../examples/demo -o youtube --option production
 
-# Generate all demo outputs with fast preset
+# Generate all demo outputs with preview preset
 demo-all:
-	node dist/cli.js generate -p ../../examples/demo -d
+	node dist/cli.js generate -p ../../examples/demo --option preview
 
 # Generate all demo outputs with production quality
 demo-all-prod:
-	node dist/cli.js generate -p ../../examples/demo
+	node dist/cli.js generate -p ../../examples/demo --option production
 
 # Clean build artifacts and dependencies
 clean:
@@ -63,7 +63,7 @@ clean:
 
 # Clean cache in demo project
 clean-cache:
-	rm -rf ../../examples/demo/.cache
+	rm -rf ../../examples/demo/cache
 
 # Full build
 all: install build

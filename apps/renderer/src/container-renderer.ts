@@ -133,10 +133,12 @@ export async function renderContainer(
 /**
  * Cleans up stale cache entries that are not in the active set
  */
-async function cleanupStaleCache(
-  cacheDir: string,
+export async function cleanupStaleCache(
+  projectDir: string,
   activeCacheKeys: Set<string>,
 ): Promise<void> {
+  const cacheDir = resolve(projectDir, 'cache', 'containers');
+
   if (!existsSync(cacheDir)) {
     return;
   }
@@ -170,9 +172,9 @@ export async function renderContainers(
   height: number,
   projectDir: string,
   outputName: string,
+  activeCacheKeys?: Set<string>,
 ): Promise<ContainerRenderResult[]> {
   const results: ContainerRenderResult[] = [];
-  const activeCacheKeys = new Set<string>();
 
   // Render all containers and collect active cache keys
   for (const container of containers) {
@@ -181,7 +183,11 @@ export async function renderContainers(
       cssText,
       outputName,
     );
-    activeCacheKeys.add(cacheKey);
+
+    // Add to provided Set or create a local one (for backwards compatibility)
+    if (activeCacheKeys) {
+      activeCacheKeys.add(cacheKey);
+    }
 
     const result = await renderContainer({
       container,
@@ -193,10 +199,6 @@ export async function renderContainers(
     });
     results.push(result);
   }
-
-  // Clean up stale cache entries
-  const cacheDir = resolve(projectDir, 'cache', 'containers');
-  await cleanupStaleCache(cacheDir, activeCacheKeys);
 
   return results;
 }

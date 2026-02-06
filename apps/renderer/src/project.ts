@@ -1,4 +1,4 @@
-import { Asset, Output, SequenceDefinition } from './type';
+import { Asset, Output, SequenceDefinition, FFmpegOption } from './type';
 import { Label } from './ffmpeg';
 import { AssetManager } from './asset-manager';
 import { Sequence } from './sequence';
@@ -15,6 +15,7 @@ export class Project {
     private sequencesDefinitions: SequenceDefinition[],
     assets: Asset[],
     private outputs: Map<string, Output>,
+    private ffmpegOptions: Map<string, FFmpegOption>,
     private cssText: string,
     private projectPath: string,
   ) {
@@ -93,6 +94,14 @@ export class Project {
     return this.outputs;
   }
 
+  public getFfmpegOptions(): Map<string, FFmpegOption> {
+    return this.ffmpegOptions;
+  }
+
+  public getFfmpegOption(name: string): FFmpegOption | undefined {
+    return this.ffmpegOptions.get(name);
+  }
+
   public getCssText(): string {
     return this.cssText;
   }
@@ -121,7 +130,10 @@ export class Project {
   /**
    * Renders all containers and creates virtual assets for them
    */
-  public async renderContainers(outputName: string): Promise<void> {
+  public async renderContainers(
+    outputName: string,
+    activeCacheKeys?: Set<string>,
+  ): Promise<void> {
     const output = this.getOutput(outputName);
     if (!output) {
       throw new Error(`Output "${outputName}" not found`);
@@ -148,6 +160,7 @@ export class Project {
       output.resolution.height,
       projectDir,
       outputName,
+      activeCacheKeys,
     );
 
     // Create virtual assets and update fragment assetNames

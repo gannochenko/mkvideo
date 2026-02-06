@@ -213,3 +213,12 @@
     fps="30"
   />
 </outputs>
+
+<ffmpeg>
+  <option name="preview">
+    -c:v h264_nvenc -preset fast -c:a aac -b:a 192k
+  </option>
+  <option name="meh">
+    -pix_fmt yuv420p -preset ultrafast -c:a aac -b:a 192k
+  </option>
+</ffmpeg>
