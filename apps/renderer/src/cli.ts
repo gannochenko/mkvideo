@@ -80,10 +80,7 @@ program
     '-o, --output <name>',
     'Output name to render (renders all if not specified)',
   )
-  .option(
-    '-p, --preview',
-    'Use fast encoding preset for development (ultrafast)',
-  )
+  .option('--preview', 'Use fast encoding preset for development (ultrafast)')
   .option(
     '--ffmpeg-args <args>',
     'Extra FFmpeg arguments to append (e.g., "-crf 23 -tune film")',
