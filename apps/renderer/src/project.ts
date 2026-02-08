@@ -1,4 +1,10 @@
-import { Asset, Output, SequenceDefinition, FFmpegOption } from './type';
+import {
+  Asset,
+  Output,
+  SequenceDefinition,
+  FFmpegOption,
+  YouTubeUpload,
+} from './type';
 import { Label } from './ffmpeg';
 import { AssetManager } from './asset-manager';
 import { Sequence } from './sequence';
@@ -16,6 +22,8 @@ export class Project {
     assets: Asset[],
     private outputs: Map<string, Output>,
     private ffmpegOptions: Map<string, FFmpegOption>,
+    private youtubeUploads: Map<string, YouTubeUpload>,
+    private title: string,
     private cssText: string,
     private projectPath: string,
   ) {
@@ -100,6 +108,18 @@ export class Project {
 
   public getFfmpegOption(name: string): FFmpegOption | undefined {
     return this.ffmpegOptions.get(name);
+  }
+
+  public getYouTubeUploads(): Map<string, YouTubeUpload> {
+    return this.youtubeUploads;
+  }
+
+  public getYouTubeUpload(name: string): YouTubeUpload | undefined {
+    return this.youtubeUploads.get(name);
+  }
+
+  public getTitle(): string {
+    return this.title;
   }
 
   public getCssText(): string {

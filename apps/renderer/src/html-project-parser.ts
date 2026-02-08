@@ -8,6 +8,7 @@ import {
   Fragment,
   Container,
   FFmpegOption,
+  YouTubeUpload,
 } from './type';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
@@ -36,6 +37,8 @@ export class HTMLProjectParser {
 
     const outputs = this.processOutputs();
     const ffmpegOptions = this.processFfmpegOptions();
+    const youtubeUploads = this.processYouTubeUploads();
+    const title = this.processTitle();
     const sequences = this.processSequences(assets);
     const cssText = this.html.cssText;
 
@@ -44,6 +47,8 @@ export class HTMLProjectParser {
       assets,
       outputs,
       ffmpegOptions,
+      youtubeUploads,
+      title,
       cssText,
       this.projectPath,
     );
@@ -531,6 +536,248 @@ export class HTMLProjectParser {
 
         // Check if element is an <ffmpeg> tag
         if (element.tagName === 'ffmpeg') {
+          results.push(element);
+        }
+      }
+
+      if ('childNodes' in node && node.childNodes) {
+        for (const child of node.childNodes) {
+          traverse(child);
+        }
+      }
+    };
+
+    traverse(this.html.ast);
+    return results;
+  }
+
+  /**
+   * Processes YouTube uploads from the parsed HTML
+   */
+  private processYouTubeUploads(): Map<string, YouTubeUpload> {
+    const uploadsElements = this.findUploadsElements();
+    const uploads = new Map<string, YouTubeUpload>();
+
+    for (const uploadsElement of uploadsElements) {
+      if ('childNodes' in uploadsElement && uploadsElement.childNodes) {
+        for (const child of uploadsElement.childNodes) {
+          if ('tagName' in child) {
+            const childElement = child as Element;
+            if (childElement.tagName === 'youtube') {
+              const upload = this.parseYouTubeElement(childElement);
+              if (upload) {
+                uploads.set(upload.name, upload);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return uploads;
+  }
+
+  /**
+   * Parses a single <youtube> element
+   */
+  private parseYouTubeElement(element: Element): YouTubeUpload | null {
+    const attrs = new Map(element.attrs.map((attr) => [attr.name, attr.value]));
+
+    const name = attrs.get('name');
+    const outputName = attrs.get('data-output-name');
+
+    if (!name || !outputName) {
+      console.warn('YouTube upload missing name or data-output-name attribute');
+      return null;
+    }
+
+    const videoId = attrs.get('id') || undefined;
+
+    // Parse child elements
+    let uploadTitle: string | undefined;
+    let privacy: 'public' | 'unlisted' | 'private' = 'private';
+    let madeForKids = false;
+    const tags: string[] = [];
+    let category = 'entertainment';
+    let language = 'en';
+    let description = '';
+    let thumbnailTimecode: number | undefined;
+
+    if ('childNodes' in element && element.childNodes) {
+      for (const child of element.childNodes) {
+        if ('tagName' in child) {
+          const childElement = child as Element;
+
+          switch (childElement.tagName) {
+            case 'title': {
+              // Get text content
+              if ('childNodes' in childElement && childElement.childNodes) {
+                for (const textNode of childElement.childNodes) {
+                  if ('value' in textNode) {
+                    uploadTitle = (uploadTitle || '') + textNode.value;
+                  }
+                }
+              }
+              uploadTitle = uploadTitle?.trim();
+              break;
+            }
+            case 'public':
+              privacy = 'public';
+              break;
+            case 'unlisted':
+              privacy = 'unlisted';
+              break;
+            case 'private':
+              privacy = 'private';
+              break;
+            case 'made-for-kids':
+              madeForKids = true;
+              break;
+            case 'tag': {
+              const tagAttrs = new Map(
+                childElement.attrs.map((attr) => [attr.name, attr.value]),
+              );
+              const tagName = tagAttrs.get('name');
+              if (tagName) {
+                tags.push(tagName);
+              }
+              break;
+            }
+            case 'category': {
+              const catAttrs = new Map(
+                childElement.attrs.map((attr) => [attr.name, attr.value]),
+              );
+              const catName = catAttrs.get('name');
+              if (catName) {
+                category = catName;
+              }
+              break;
+            }
+            case 'language': {
+              const langAttrs = new Map(
+                childElement.attrs.map((attr) => [attr.name, attr.value]),
+              );
+              const langName = langAttrs.get('name');
+              if (langName) {
+                language = langName;
+              }
+              break;
+            }
+            case 'pre': {
+              // Get text content
+              if ('childNodes' in childElement && childElement.childNodes) {
+                for (const textNode of childElement.childNodes) {
+                  if ('value' in textNode) {
+                    description += textNode.value;
+                  }
+                }
+              }
+              break;
+            }
+            case 'thumbnail': {
+              const thumbAttrs = new Map(
+                childElement.attrs.map((attr) => [attr.name, attr.value]),
+              );
+              const timecode = thumbAttrs.get('data-timecode');
+              if (timecode) {
+                // Parse timecode (e.g., "1000ms" or "1s")
+                const match = timecode.match(/^(\d+(?:\.\d+)?)(ms|s)$/);
+                if (match) {
+                  const value = parseFloat(match[1]);
+                  const unit = match[2];
+                  thumbnailTimecode = unit === 's' ? value * 1000 : value;
+                }
+              }
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    return {
+      name,
+      outputName,
+      title: uploadTitle,
+      videoId,
+      privacy,
+      madeForKids,
+      tags,
+      category,
+      language,
+      description: description.trim(),
+      thumbnailTimecode,
+    };
+  }
+
+  /**
+   * Processes the title from the parsed HTML
+   */
+  private processTitle(): string {
+    const titleElements = this.findTitleElements();
+
+    if (titleElements.length === 0) {
+      return 'Untitled Project';
+    }
+
+    // Get text content from first title element
+    const titleElement = titleElements[0];
+    let title = '';
+
+    if ('childNodes' in titleElement && titleElement.childNodes) {
+      for (const textNode of titleElement.childNodes) {
+        if ('value' in textNode) {
+          title += textNode.value;
+        }
+      }
+    }
+
+    return title.trim() || 'Untitled Project';
+  }
+
+  /**
+   * Finds all title elements in the HTML (top-level only, not inside uploads)
+   */
+  private findTitleElements(): Element[] {
+    const results: Element[] = [];
+
+    const traverse = (node: ASTNode, depth: number = 0) => {
+      if ('tagName' in node) {
+        const element = node as Element;
+
+        // Only find top-level <title> tags, not inside <youtube> elements
+        if (element.tagName === 'title' && depth === 0) {
+          results.push(element);
+        }
+
+        // Don't traverse into <uploads> sections
+        if (element.tagName === 'uploads') {
+          return;
+        }
+      }
+
+      if ('childNodes' in node && node.childNodes) {
+        for (const child of node.childNodes) {
+          traverse(child, depth + 1);
+        }
+      }
+    };
+
+    traverse(this.html.ast);
+    return results;
+  }
+
+  /**
+   * Finds all uploads elements in the HTML
+   */
+  private findUploadsElements(): Element[] {
+    const results: Element[] = [];
+
+    const traverse = (node: ASTNode) => {
+      if ('tagName' in node) {
+        const element = node as Element;
+
+        if (element.tagName === 'uploads') {
           results.push(element);
         }
       }

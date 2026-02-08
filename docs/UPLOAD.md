@@ -13,7 +13,7 @@ There is a section in the project.html file about the upload channels:
     <language name="en" />
     <thumbnail data-timecode="1000ms" />
     <pre>
-{title}.
+${title}.
 
 Links:
 - Website: https://example.com
@@ -35,7 +35,7 @@ For youtube there are the following tags supported:
 
 <youtube> - says it's a youtube upload, it has a name and a connection to the output name. When the vide is upload, the "id" attribute must contain the id of the created video.
 
-<unlisted /> - means the vide is currently unlisted, can also be <private /> and <public />
+<unlisted /> - means the vide is currently unlisted, can also be <private /> and <public />. If not specified, it is <private /> by default.
 
 <made-for-kids /> - indicates the video is made for kids.
 
@@ -44,6 +44,8 @@ For youtube there are the following tags supported:
 <category /> - defines the category, can only be one
 
 <language /> - defines the language of the video
+
+<title /> - defined the title of the video. If not specified, takes the project global title.
 
 <pre /> - contains the description. The content should support ejs.
 

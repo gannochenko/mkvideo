@@ -22,6 +22,8 @@ import {
 } from './ffmpeg.js';
 import { getAssetDuration } from './ffprobe.js';
 import { cleanupStaleCache } from './container-renderer.js';
+import { YouTubeUploader } from './youtube-uploader.js';
+import open from 'open';
 
 // Read version from package.json
 // In built code, this file is at dist/cli.js, package.json is at ../package.json
@@ -440,6 +442,214 @@ program
       console.log(`\n✅ Assets added to ${projectFilePath}`);
     } catch (error) {
       handleError(error, 'Asset scanning');
+      process.exit(1);
+    }
+  });
+
+program
+  .command('auth')
+  .description('Authenticate with YouTube for uploading')
+  .option('-p, --project <path>', 'Path to project directory', '.')
+  .requiredOption('--upload-name <name>', 'Name of the upload configuration')
+  .action(async (options) => {
+    try {
+      // Get OAuth credentials from environment variables
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+      if (!clientId || !clientSecret) {
+        console.error(
+          'Error: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables must be set',
+        );
+        console.error(
+          '\nTo set them, add to your ~/.bashrc or ~/.zshrc:',
+        );
+        console.error('  export GOOGLE_CLIENT_ID="your-client-id"');
+        console.error('  export GOOGLE_CLIENT_SECRET="your-client-secret"');
+        console.error(
+          '\nGet credentials from: https://console.cloud.google.com/apis/credentials',
+        );
+        process.exit(1);
+      }
+
+      // Resolve project path
+      const projectPath = resolve(process.cwd(), options.project);
+      const projectFilePath = resolve(projectPath, 'project.html');
+
+      // Validate project.html exists
+      if (!existsSync(projectFilePath)) {
+        console.error(`Error: project.html not found in ${projectPath}`);
+        process.exit(1);
+      }
+
+      console.log(`📁 Project: ${projectPath}`);
+      console.log(`🔐 Authenticating: ${options.uploadName}\n`);
+
+      // Create uploader instance
+      const uploader = new YouTubeUploader(clientId, clientSecret);
+
+      // Get authorization URL
+      const authUrl = uploader.getAuthUrl();
+
+      console.log('🌐 Opening browser for authorization...\n');
+
+      // Open browser automatically
+      try {
+        await open(authUrl);
+        console.log('✅ Browser opened successfully\n');
+      } catch (err) {
+        console.log('⚠️  Could not open browser automatically');
+        console.log('🌐 Please visit this URL to authorize:\n');
+        console.log(authUrl);
+      }
+
+      console.log('\n⚠️  After authorizing, copy the authorization code from the URL');
+      console.log(
+        '⚠️  Then run: staticstripes auth-complete --upload-name <name> --code <code>',
+      );
+    } catch (error) {
+      handleError(error, 'Authentication');
+      process.exit(1);
+    }
+  });
+
+program
+  .command('auth-complete')
+  .description('Complete authentication with authorization code')
+  .option('-p, --project <path>', 'Path to project directory', '.')
+  .requiredOption('--upload-name <name>', 'Name of the upload configuration')
+  .requiredOption('--code <code>', 'Authorization code from OAuth flow')
+  .action(async (options) => {
+    try {
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+      if (!clientId || !clientSecret) {
+        console.error('Error: OAuth credentials not set in environment');
+        process.exit(1);
+      }
+
+      const projectPath = resolve(process.cwd(), options.project);
+
+      // Create uploader and complete authentication
+      const uploader = new YouTubeUploader(clientId, clientSecret);
+      await uploader.authenticate(options.code, options.uploadName, projectPath);
+
+      console.log(`✅ Authentication complete for ${options.uploadName}`);
+    } catch (error) {
+      handleError(error, 'Authentication completion');
+      process.exit(1);
+    }
+  });
+
+program
+  .command('upload')
+  .description('Upload video to YouTube')
+  .option('-p, --project <path>', 'Path to project directory', '.')
+  .requiredOption('--upload-name <name>', 'Name of the upload configuration')
+  .action(async (options) => {
+    try {
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+      if (!clientId || !clientSecret) {
+        console.error('Error: OAuth credentials not set in environment');
+        process.exit(1);
+      }
+
+      // Resolve project path
+      const projectPath = resolve(process.cwd(), options.project);
+      const projectFilePath = resolve(projectPath, 'project.html');
+
+      // Validate project.html exists
+      if (!existsSync(projectFilePath)) {
+        console.error(`Error: project.html not found in ${projectPath}`);
+        process.exit(1);
+      }
+
+      console.log(`📁 Project: ${projectPath}`);
+      console.log(`📄 Loading: ${projectFilePath}\n`);
+
+      // Parse the project HTML file
+      const parser = new HTMLProjectParser(
+        await new HTMLParser().parseFile(projectFilePath),
+        projectFilePath,
+      );
+      const project = await parser.parse();
+
+      // Get upload configuration
+      const upload = project.getYouTubeUpload(options.uploadName);
+      if (!upload) {
+        const availableUploads = Array.from(
+          project.getYouTubeUploads().keys(),
+        );
+        console.error(
+          `Error: Upload "${options.uploadName}" not found in project.html`,
+        );
+        if (availableUploads.length > 0) {
+          console.error(`Available uploads: ${availableUploads.join(', ')}`);
+        } else {
+          console.error('No uploads defined in project.html');
+        }
+        process.exit(1);
+      }
+
+      // Get the output file
+      const output = project.getOutput(upload.outputName);
+      if (!output) {
+        console.error(`Error: Output "${upload.outputName}" not found`);
+        process.exit(1);
+      }
+
+      if (!existsSync(output.path)) {
+        console.error(`Error: Output file not found: ${output.path}`);
+        console.error('Please generate the video first with: staticstripes generate');
+        process.exit(1);
+      }
+
+      console.log(`📹 Video file: ${output.path}`);
+      console.log(`🎬 Upload config: ${options.uploadName}\n`);
+
+      // Create uploader and load tokens
+      const uploader = new YouTubeUploader(clientId, clientSecret);
+      const hasTokens = uploader.loadTokens(options.uploadName, projectPath);
+
+      if (!hasTokens) {
+        console.error(
+          `Error: Not authenticated. Please run: staticstripes auth --upload-name ${options.uploadName}`,
+        );
+        process.exit(1);
+      }
+
+      // Determine title (use upload-specific title or fall back to project title)
+      const title = upload.title || project.getTitle();
+      console.log(`📝 Title: ${title}\n`);
+
+      // Upload video
+      const videoId = await uploader.uploadVideo(
+        output.path,
+        upload,
+        title,
+      );
+
+      // Handle thumbnail if specified
+      if (upload.thumbnailTimecode !== undefined) {
+        console.log(
+          `\n🖼️  Extracting thumbnail at ${upload.thumbnailTimecode}ms...`,
+        );
+        const thumbnailPath = resolve(projectPath, '.youtube-tokens', 'thumbnail.png');
+        await uploader.extractThumbnail(
+          output.path,
+          upload.thumbnailTimecode,
+          thumbnailPath,
+        );
+        await uploader.uploadThumbnail(videoId, thumbnailPath);
+      }
+
+      // TODO: Update project.html with video ID
+      console.log('\n✅ Upload complete!');
+    } catch (error) {
+      handleError(error, 'Upload');
       process.exit(1);
     }
   });
