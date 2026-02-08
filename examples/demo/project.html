@@ -1,10 +1,16 @@
+<title>Christmas Morning in Liberec</title>
+
 <project>
   <sequence>
     <fragment class="intro_image intro_duration" />
-    <fragment class="clip_1 ambient" />
+    <fragment class="clip_1 ambient" data-timecode="Main Content" />
     <fragment class="analog_static_03" />
     <fragment class="clip_2 ambient" />
-    <fragment class="outro_image outro_duration" id="ending_screen" />
+    <fragment
+      class="outro_image outro_duration"
+      id="ending_screen"
+      data-timecode="Conclusion"
+    />
   </sequence>
   <sequence>
     <fragment class="intro_sound intro_duration" />
@@ -213,6 +219,26 @@
     fps="30"
   />
 </outputs>
+
+<uploads>
+  <youtube name="yt_primary" data-output-name="youtube">
+    <unlisted />
+    <made-for-kids />
+    <tag name="travel" />
+    <tag name="blog" />
+    <category name="entertainment" />
+    <language name="en" />
+    <pre>
+Full description here with timestamps:
+
+${timecodes}
+
+Links:
+- Website: https://example.com
+- GitHub: https://github.com/user/repo
+    </pre>
+  </youtube>
+</uploads>
 
 <ffmpeg>
   <option name="preview">
