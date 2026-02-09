@@ -561,22 +561,27 @@ export class HTMLProjectParser {
   }
 
   /**
-   * Processes YouTube uploads from the parsed HTML
+   * Processes all uploads (YouTube, S3, etc.) from the parsed HTML
    */
-  private processYouTubeUploads(): Map<string, YouTubeUpload> {
+  private processUploads(): Map<string, Upload> {
     const uploadsElements = this.findUploadsElements();
-    const uploads = new Map<string, YouTubeUpload>();
+    const uploads = new Map<string, Upload>();
 
     for (const uploadsElement of uploadsElements) {
       if ('children' in uploadsElement && uploadsElement.children) {
         for (const child of uploadsElement.children) {
           if (child.type === 'tag') {
             const childElement = child as Element;
+            let upload: Upload | null = null;
+
             if (childElement.name === 'youtube') {
-              const upload = this.parseYouTubeElement(childElement);
-              if (upload) {
-                uploads.set(upload.name, upload);
-              }
+              upload = this.parseYouTubeElement(childElement);
+            } else if (childElement.name === 's3') {
+              upload = this.parseS3Element(childElement);
+            }
+
+            if (upload) {
+              uploads.set(upload.name, upload);
             }
           }
         }
@@ -589,7 +594,7 @@ export class HTMLProjectParser {
   /**
    * Parses a single <youtube> element
    */
-  private parseYouTubeElement(element: Element): YouTubeUpload | null {
+  private parseYouTubeElement(element: Element): Upload | null {
     const attrs = getAttrs(element);
 
     const name = attrs.get('name');
@@ -709,6 +714,85 @@ export class HTMLProjectParser {
       language,
       description: description.trim(),
       thumbnailTimecode,
+    };
+  }
+
+  /**
+   * Parses a single <s3> element
+   */
+  private parseS3Element(element: Element): Upload | null {
+    const attrs = getAttrs(element);
+
+    const name = attrs.get('name');
+    const outputName = attrs.get('data-output-name');
+
+    if (!name || !outputName) {
+      console.warn('S3 upload missing name or data-output-name attribute');
+      return null;
+    }
+
+    // Parse S3-specific child elements
+    let endpoint: string | undefined;
+    let region = '';
+    let bucket = '';
+    let path = '';
+    let acl: string | undefined;
+
+    if ('children' in element && element.children) {
+      for (const child of element.children) {
+        if (child.type === 'tag') {
+          const childElement = child as Element;
+          const childAttrs = getAttrs(childElement);
+
+          switch (childElement.name) {
+            case 'endpoint': {
+              endpoint = childAttrs.get('name');
+              break;
+            }
+            case 'region': {
+              region = childAttrs.get('name') || '';
+              break;
+            }
+            case 'bucket': {
+              bucket = childAttrs.get('name') || '';
+              break;
+            }
+            case 'path': {
+              path = childAttrs.get('name') || '';
+              break;
+            }
+            case 'acl': {
+              acl = childAttrs.get('name');
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // Validate required fields
+    if (!region || !bucket || !path) {
+      console.warn(`S3 upload "${name}" missing required fields (region, bucket, or path)`);
+      return null;
+    }
+
+    return {
+      name,
+      tag: element.name, // "s3"
+      outputName,
+      privacy: 'private', // Default values for S3 (not used but required by Upload type)
+      madeForKids: false,
+      tags: [],
+      category: '',
+      language: '',
+      description: '',
+      s3: {
+        endpoint,
+        region,
+        bucket,
+        path,
+        acl,
+      },
     };
   }
 

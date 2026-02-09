@@ -1,5 +1,6 @@
 import { UploadStrategy } from './upload-strategy';
 import { YouTubeUploadStrategy } from './youtube/youtube-upload-strategy';
+import { S3UploadStrategy } from './s3/s3-upload-strategy';
 
 /**
  * Factory for creating upload strategies based on upload tag
@@ -49,8 +50,8 @@ export class UploadStrategyFactory {
       new YouTubeUploadStrategy(youtubeClientId, youtubeClientSecret),
     );
 
-    // Future: Register S3 strategy, Azure strategy, etc.
-    // factory.register(new S3UploadStrategy(s3Config));
+    // Register S3 strategy
+    factory.register(new S3UploadStrategy());
 
     return factory;
   }

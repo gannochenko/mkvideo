@@ -76,3 +76,7 @@ demoauth:
 demoupload:
 	make build
 	node dist/cli.js upload -p ../../examples/demo --upload-name yt_primary
+
+demouploads3:
+	make build
+	node dist/cli.js upload -p ../../examples/demo --upload-name s3_primary

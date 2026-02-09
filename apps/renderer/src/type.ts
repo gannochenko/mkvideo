@@ -91,6 +91,14 @@ export type Upload = {
   language: string; // e.g. "en"
   description: string; // Pre-processed description (can contain EJS)
   thumbnailTimecode?: number; // Milliseconds, if thumbnail should be extracted from video
+  // S3-specific configuration
+  s3?: {
+    endpoint?: string; // e.g. "digitaloceanspaces.com"
+    region: string; // e.g. "ams3", "us-east-1"
+    bucket: string; // e.g. "my-bucket"
+    path: string; // e.g. "videos/${slug}/${output}.mp4"
+    acl?: string; // e.g. "public-read", "private"
+  };
 };
 
 // Legacy alias for backward compatibility
