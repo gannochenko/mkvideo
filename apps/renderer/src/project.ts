@@ -126,6 +126,47 @@ export class Project {
     return this.cssText;
   }
 
+  /**
+   * Collects timecodes from fragments with timecodeLabel
+   * Returns formatted timecodes in YouTube format (MM:SS or HH:MM:SS Label)
+   * Note: This must be called after build() to have accurate times in expressionContext
+   */
+  public getTimecodes(): string[] {
+    const timecodes: Array<{ time: number; label: string }> = [];
+
+    // Collect all fragments with timecode labels
+    for (const seqDef of this.sequencesDefinitions) {
+      for (const fragment of seqDef.fragments) {
+        if (fragment.timecodeLabel && this.expressionContext.fragments.has(fragment.id)) {
+          const fragmentData = this.expressionContext.fragments.get(fragment.id)!;
+          timecodes.push({
+            time: fragmentData.time.start / 1000, // Convert ms to seconds
+            label: fragment.timecodeLabel,
+          });
+        }
+      }
+    }
+
+    // Sort by time
+    timecodes.sort((a, b) => a.time - b.time);
+
+    // Format as YouTube timecodes (MM:SS or HH:MM:SS)
+    return timecodes.map(({ time, label }) => {
+      const hours = Math.floor(time / 3600);
+      const minutes = Math.floor((time % 3600) / 60);
+      const seconds = Math.floor(time % 60);
+
+      let timeStr: string;
+      if (hours > 0) {
+        timeStr = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      } else {
+        timeStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      }
+
+      return `${timeStr} ${label}`;
+    });
+  }
+
   public getSequenceDefinitions(): SequenceDefinition[] {
     return this.sequencesDefinitions;
   }

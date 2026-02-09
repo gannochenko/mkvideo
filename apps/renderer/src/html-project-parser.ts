@@ -1034,6 +1034,9 @@ export class HTMLProjectParser {
     // 15. Parse filter (for visual filters)
     const visualFilter = this.parseVisualFilterProperty(styles['filter']);
 
+    // 16. Extract timecode label from data-timecode attribute
+    const timecodeLabel = attrs.get('data-timecode') || undefined;
+
     return {
       id,
       enabled,
@@ -1064,6 +1067,7 @@ export class HTMLProjectParser {
       chromakeyColor: chromakeyData.chromakeyColor,
       ...(visualFilter && { visualFilter }), // Add visualFilter if present
       ...(container && { container }), // Add container if present
+      ...(timecodeLabel && { timecodeLabel }), // Add timecode label if present
     };
   }
 

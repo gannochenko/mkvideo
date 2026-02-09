@@ -56,6 +56,7 @@ export type Fragment = {
   chromakeyColor: string;
   visualFilter?: string; // Optional visual filter (e.g., 'instagram-nashville')
   container?: Container; // Optional container attached to this fragment
+  timecodeLabel?: string; // Optional label for timecode (from data-timecode attribute)
 };
 
 export type SequenceDefinition = {

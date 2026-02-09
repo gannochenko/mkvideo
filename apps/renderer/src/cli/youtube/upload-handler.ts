@@ -1,6 +1,7 @@
 import { resolve } from 'path';
 import { YouTubeUploader } from '../../youtube-uploader';
 import { Project } from '../../project';
+import ejs from 'ejs';
 
 export interface YouTubeUploadOptions {
   uploadName: string;
@@ -54,8 +55,28 @@ export async function handleYouTubeUpload(
   const title = upload.title || project.getTitle();
   console.log(`📝 Title: ${title}\n`);
 
+  // Build the project to populate fragment times (needed for timecodes)
+  console.log('🔨 Building project to calculate timecodes...');
+  await project.build(upload.outputName);
+
+  // Get timecodes and process description with EJS
+  const timecodes = project.getTimecodes();
+
+  // Convert ${variable} syntax to <%= variable %> for EJS compatibility
+  const ejsDescription = upload.description.replace(/\$\{(\w+)\}/g, '<%= $1 %>');
+
+  const processedDescription = ejs.render(ejsDescription, {
+    timecodes: timecodes.join('\n'),
+  });
+
+  // Create a processed upload object with rendered description
+  const processedUpload = {
+    ...upload,
+    description: processedDescription,
+  };
+
   // Upload video
-  const videoId = await uploader.uploadVideo(output.path, upload, title);
+  const videoId = await uploader.uploadVideo(output.path, processedUpload, title);
 
   // Handle thumbnail if specified
   if (upload.thumbnailTimecode !== undefined) {
