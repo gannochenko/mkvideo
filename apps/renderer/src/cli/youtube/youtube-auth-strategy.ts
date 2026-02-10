@@ -74,7 +74,7 @@ export class YouTubeAuthStrategy implements AuthStrategy {
             res.end(`
               <html>
                 <body style="font-family: system-ui; padding: 40px; text-align: center;">
-                  <h1>✅ Authorization Successful!</h1>
+                  <h1>Authorization Successful!</h1>
                   <p>You can close this window and return to the terminal.</p>
                 </body>
               </html>

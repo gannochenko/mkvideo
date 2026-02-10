@@ -34,13 +34,12 @@ function getOAuthInstructions(): string {
   instructions += '   - Click "Create"\n\n';
   instructions += '6. Copy your Client ID and Client Secret\n\n';
   instructions += '7. Publish your OAuth app (IMPORTANT):\n';
-  instructions +=
-    '   - Go to "APIs & Services" > "OAuth consent screen"\n';
+  instructions += '   - Go to "APIs & Services" > "OAuth consent screen"\n';
   instructions += '   - Click "PUBLISH APP" button\n';
   instructions +=
     '   - This makes refresh tokens permanent (otherwise they expire in 7 days)\n';
   instructions +=
-    '   - Note: For personal use, you don\'t need Google verification\n\n';
+    "   - Note: For personal use, you don't need Google verification\n\n";
   instructions += '8. Set environment variables:\n\n';
 
   // Platform-specific instructions
@@ -160,7 +159,7 @@ export function registerYouTubeAuthCommands(program: Command): void {
                 res.end(`
                   <html>
                     <body style="font-family: system-ui; padding: 40px; text-align: center;">
-                      <h1>✅ Authorization Successful!</h1>
+                      <h1>Authorization Successful!</h1>
                       <p>You can close this window and return to the terminal.</p>
                     </body>
                   </html>
