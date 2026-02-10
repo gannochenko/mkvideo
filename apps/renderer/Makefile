@@ -85,13 +85,17 @@ demoupload:
 	make build
 	node dist/cli.js upload -p ../../examples/demo --upload-name yt_primary
 
-demouploadi:
-	make build
-	node dist/cli.js upload -p ../../examples/demo --upload-name ig_primary
-
 demouploads3:
 	make build
 	node dist/cli.js upload -p ../../examples/demo --upload-name s3_primary
+
+demouploads3i:
+	make build
+	node dist/cli.js upload -p ../../examples/demo --upload-name s3_instagram
+
+demouploadi:
+	make build
+	node dist/cli.js upload -p ../../examples/demo --upload-name ig_primary
 
 authhelpi:
 	make build
