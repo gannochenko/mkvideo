@@ -17,6 +17,11 @@ export function registerAuthCommand(
     .description('Authenticate with upload provider (YouTube, Instagram, etc.)')
     .option('-p, --project <path>', 'Path to project directory', '.')
     .requiredOption('--upload-name <name>', 'Name of the upload configuration')
+    .option(
+      '--oauth-redirect-url <url>',
+      'OAuth redirect URL (e.g., https://your-ngrok-url.ngrok-free.app/oauth2callback). ' +
+        'Required for Instagram if using ngrok/Cloudflare. Defaults to http://localhost:3000/oauth2callback',
+    )
     .action(async (options) => {
       try {
         // Resolve project path
@@ -61,8 +66,10 @@ export function registerAuthCommand(
         try {
           const strategy = factory.getStrategy(upload.tag);
 
-          // Execute the authentication
-          await strategy.execute(options.uploadName, projectPath);
+          // Execute the authentication with options
+          await strategy.execute(options.uploadName, projectPath, {
+            oauthRedirectUrl: options.oauthRedirectUrl,
+          });
         } catch (error: any) {
           // If strategy not found, show available options and setup instructions
           if (error.message.includes('No authentication strategy')) {

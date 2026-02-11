@@ -1,4 +1,4 @@
-import { AuthStrategy } from '../auth-strategy';
+import { AuthStrategy, AuthOptions } from '../auth-strategy';
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { resolve } from 'path';
 import open from 'open';
@@ -11,13 +11,15 @@ import * as readline from 'readline';
  * Automatic OAuth flow with browser redirect (like YouTube)
  */
 export class InstagramAuthStrategy implements AuthStrategy {
-  private redirectUri: string = 'http://localhost:3000/oauth2callback';
-
   getTag(): string {
     return 'instagram';
   }
 
-  async execute(uploadName: string, projectPath: string): Promise<void> {
+  async execute(
+    uploadName: string,
+    projectPath: string,
+    options?: AuthOptions,
+  ): Promise<void> {
     console.log(`🔐 Instagram Authentication Setup\n`);
 
     const rl = readline.createInterface({
@@ -50,6 +52,19 @@ export class InstagramAuthStrategy implements AuthStrategy {
         throw new Error('Invalid App Secret');
       }
 
+      // Use provided redirect URL or default to localhost
+      const redirectUri =
+        options?.oauthRedirectUrl || 'http://localhost:3000/oauth2callback';
+
+      console.log(`\n🔗 Using OAuth Redirect URI: ${redirectUri}`);
+      if (!redirectUri.includes('localhost')) {
+        console.log('✅ Using external URL (ngrok/Cloudflare)');
+      } else {
+        console.log(
+          '⚠️  Using localhost - this may not work with Instagram. Consider using --oauth-redirect-url with ngrok/Cloudflare',
+        );
+      }
+
       console.log('\n━'.repeat(60));
       console.log('STEP 2: Authorize with Instagram');
       console.log('━'.repeat(60));
@@ -60,7 +75,10 @@ export class InstagramAuthStrategy implements AuthStrategy {
       console.log('🌐 Starting local server on http://localhost:3000...\n');
 
       // Wait for OAuth callback
-      const authCode = await this.waitForAuthCode(appId.trim());
+      const authCode = await this.waitForAuthCode(
+        appId.trim(),
+        redirectUri.trim(),
+      );
 
       console.log('🔑 Authorization code received\n');
       console.log('🔄 Exchanging for access token...\n');
@@ -70,6 +88,7 @@ export class InstagramAuthStrategy implements AuthStrategy {
         authCode,
         appId.trim(),
         appSecret.trim(),
+        redirectUri.trim(),
       );
 
       console.log('✅ Short-lived token received\n');
@@ -122,10 +141,10 @@ export class InstagramAuthStrategy implements AuthStrategy {
   /**
    * Generates Instagram OAuth authorization URL
    */
-  private getAuthUrl(appId: string): string {
+  private getAuthUrl(appId: string, redirectUri: string): string {
     const params = new URLSearchParams({
       client_id: appId,
-      redirect_uri: this.redirectUri,
+      redirect_uri: redirectUri,
       scope: 'instagram_business_basic,instagram_business_content_publish',
       response_type: 'code',
       state: Math.random().toString(36).substring(7),
@@ -137,7 +156,10 @@ export class InstagramAuthStrategy implements AuthStrategy {
   /**
    * Starts local HTTP server and waits for OAuth callback
    */
-  private async waitForAuthCode(appId: string): Promise<string> {
+  private async waitForAuthCode(
+    appId: string,
+    redirectUri: string,
+  ): Promise<string> {
     return new Promise<string>((resolve, reject) => {
       const connections = new Set<any>();
 
@@ -211,10 +233,10 @@ export class InstagramAuthStrategy implements AuthStrategy {
       server.listen(3000, async () => {
         console.log('✅ Server started successfully\n');
         console.log(
-          `🌐 Opening browser for authorization, redirect url = ${this.redirectUri}\n`,
+          `🌐 Opening browser for authorization, redirect url = ${redirectUri}\n`,
         );
 
-        const authUrl = this.getAuthUrl(appId);
+        const authUrl = this.getAuthUrl(appId, redirectUri);
         try {
           await open(authUrl);
           console.log('✅ Browser opened successfully\n');
@@ -247,12 +269,13 @@ export class InstagramAuthStrategy implements AuthStrategy {
     code: string,
     appId: string,
     appSecret: string,
+    redirectUri: string,
   ): Promise<string> {
     const params = new URLSearchParams({
       client_id: appId,
       client_secret: appSecret,
       grant_type: 'authorization_code',
-      redirect_uri: this.redirectUri,
+      redirect_uri: redirectUri,
       code: code,
     });
 
@@ -347,28 +370,29 @@ export class InstagramAuthStrategy implements AuthStrategy {
   getSetupInstructions(): string {
     return `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Instagram Authentication Setup (Automatic OAuth Flow)
+Instagram Authentication Setup
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Automatic browser-based authentication - just like YouTube!
+Interactive OAuth flow with automatic token exchange.
 
 ⚠️  PREREQUISITES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   ✅ Instagram Business or Creator account (NOT personal)
   ✅ Facebook account (for creating the app)
+  ✅ ngrok or Cloudflare Tunnel (Meta doesn't allow localhost)
 
 Convert to Business/Creator if needed:
   Instagram app → Profile → Menu → Settings → Account
   → "Switch to Professional Account" → Choose Business or Creator
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STEP 1: Create Facebook Developer App
+STEP 1: Create Facebook App with Instagram Use Case
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 1. Go to: https://developers.facebook.com
 2. Click "Get Started" → Log in → Complete registration
 3. Click "My Apps" → "Create App"
 4. When asked about use case, select:
-   "Manage messaging & content on Instagram"
+   ⭐ "Manage messaging & content on Instagram"
 5. Select app type: "Business"
 6. Fill in:
    • App name: "My Instagram Uploader"
@@ -376,72 +400,123 @@ STEP 1: Create Facebook Developer App
 7. Click "Create App"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STEP 2: Get Your App Credentials
+STEP 2: Publish App to Production (IMPORTANT!)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. In app dashboard, click "Customize" on the Instagram use case
-2. You'll see:
-   • Instagram app ID (copy this!)
-   • Instagram app secret (click "Show" to reveal, copy this!)
+Publishing to production avoids test environment limitations.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STEP 3: Configure OAuth Redirect URI (IMPORTANT!)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-This is the tricky part - finding where to add the redirect URI.
+1. In app dashboard, look for "App Mode" toggle or similar
+2. Switch from "Development" to "Live" mode
+3. Or find "Publish" button and click it
 
-Try these locations (interface keeps changing):
-
-Option A - In "Customize" screen:
-  1. Scroll down in the "Customize" screen
-  2. Look for "OAuth Redirect URIs" or "Valid OAuth Redirect URIs"
-  3. Add: http://localhost:3000/oauth2callback
-  4. Click "Save"
-
-Option B - Under Use Cases:
-  1. Left sidebar → "Use cases"
-  2. Click on "Manage messaging & content on Instagram"
-  3. Look for "Settings" or "Configure" button
-  4. Find "OAuth Redirect URIs" section
-  5. Add: http://localhost:3000/oauth2callback
-  6. Click "Save"
-
-Option C - In Products:
-  1. Left sidebar → Look for "Instagram" under Products
-  2. Click "Settings" or gear icon next to Instagram
-  3. Find "OAuth Redirect URIs"
-  4. Add: http://localhost:3000/oauth2callback
-  5. Click "Save"
-
-If you can't find it anywhere, take a screenshot and we'll figure it out!
+Note: For personal use, you don't need Meta verification.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STEP 4: Add Yourself as Tester
+STEP 3: Navigate to Instagram Customize Wizard
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. In app dashboard → "Roles" (left sidebar)
-2. Scroll to "Instagram Testers" section
-3. Click "Add Instagram Testers"
-4. Enter your Instagram username (without @)
-5. Click "Submit"
+1. Go to: Dashboard → Use Cases
+2. Find "Manage messaging & content on Instagram"
+3. Click "Customize" button
 
-Accept the invitation on Instagram:
-6. Instagram mobile app → Settings → Business → Apps and websites
-   (or Settings → For Professionals → Invitations)
-7. Accept the tester invitation
+You'll see a wizard with several steps. Follow them in order:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-STEP 5: Run Authentication Wizard
+STEP 4: Copy App Credentials
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Run:
+At the top of the Customize page, you'll see:
+  • Instagram App ID (copy this!)
+  • Instagram App Secret (click "Show" to reveal, copy this!)
+
+Keep these handy - you'll need them for the auth wizard.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5: Add Required Permissions
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+In the wizard, find "Add required messaging permissions" section:
+
+1. Look for permissions list
+2. Enable these permissions:
+   • instagram_business_basic
+   • instagram_business_content_publish
+3. Save changes
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 6: Generate Access Token & Add Account
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+In the wizard, find "Generate access token" section:
+
+1. Click "Add account"
+2. You'll be prompted to authenticate with Instagram
+3. If you have a personal account, convert it to Business/Creator
+4. Allow access for the app
+5. Complete the authorization flow
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 7: Set Up Tunnel (ngrok or Cloudflare)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️  IMPORTANT: Meta doesn't allow localhost:3000 as callback domain!
+   You MUST use ngrok or Cloudflare Tunnel BEFORE running auth.
+
+Option A - Using ngrok (simpler but unstable domain):
+  1. Install ngrok: https://ngrok.com/download
+  2. Run: ngrok http 3000
+  3. Copy the HTTPS URL (e.g., https://abc123.ngrok-free.app)
+  4. Keep ngrok running!
+
+  ⚠️  WARNING: ngrok URLs change on restart!
+      You'll need to update Meta redirect URI each time.
+
+Option B - Using Cloudflare Tunnel (stable domain, recommended):
+  1. Set up Cloudflare Tunnel: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/
+  2. Tunnel localhost:3000 to a stable domain
+  3. Your URL will be stable (e.g., https://your-domain.com)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 8: Configure OAuth Redirect URI in Meta
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+In the wizard, find "Set up Instagram business login" → "Business login settings":
+
+1. Add to "OAuth Redirect URIs":
+   https://your-tunnel-url/oauth2callback
+
+   Examples:
+   • ngrok: https://abc123.ngrok-free.app/oauth2callback
+   • Cloudflare: https://your-domain.com/oauth2callback
+
+2. Click "Save"
+
+⚠️  Make sure path ends with /oauth2callback (no trailing slash!)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 9: Run Authentication Command
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Make sure your tunnel (ngrok/Cloudflare) is running, then:
+
+WITHOUT ngrok/Cloudflare (will likely fail with Instagram):
   staticstripes auth --upload-name YOUR_UPLOAD_NAME
 
-The wizard will:
-1. Ask you to enter your App ID and App Secret
-2. Start local server on port 3000
-3. Open browser automatically
-4. Ask you to authorize the app
-5. Automatically exchange tokens
-6. Save ALL credentials to .auth/YOUR_UPLOAD_NAME.json
+WITH ngrok/Cloudflare (recommended):
+  staticstripes auth --upload-name YOUR_UPLOAD_NAME \\
+    --oauth-redirect-url https://your-tunnel-url/oauth2callback
 
-Done! Just like YouTube auth - interactive and easy!
+Example with ngrok:
+  staticstripes auth --upload-name ig_primary \\
+    --oauth-redirect-url https://abc123.ngrok-free.app/oauth2callback
+
+Example with Cloudflare:
+  staticstripes auth --upload-name ig_primary \\
+    --oauth-redirect-url https://your-domain.com/oauth2callback
+
+The command will:
+1. Ask you to enter Instagram App ID
+2. Ask you to enter Instagram App Secret
+3. Use the redirect URL you specified (or default to localhost)
+4. Start local server on port 3000
+5. Open browser for Instagram authorization
+6. Automatically exchange tokens (short-lived → long-lived)
+7. Fetch your Instagram User ID
+8. Save ALL credentials to .auth/YOUR_UPLOAD_NAME.json
+
+Done! Your credentials are saved locally.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TOKEN REFRESH (Every 60 Days)
@@ -456,24 +531,37 @@ Tokens expire after 60 days. To refresh:
 TROUBLESHOOTING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ❌ "redirect_uri_mismatch"
-   → Make sure you added http://localhost:3000/oauth2callback in Step 3
+   → Meta doesn't accept localhost - use ngrok/Cloudflare
+   → Make sure redirect URI in Meta matches redirectUri in code
    → Check for typos (no trailing slash!)
-   → Make sure you clicked "Save" after adding it
+   → If using ngrok, domain changes on restart - update everywhere!
 
-❌ "Insufficient Developer Role"
-   → Add yourself as Instagram Tester (Step 4)
-   → Accept invitation in Instagram mobile app
+❌ "Can't find the wizard or Customize button"
+   → Dashboard → Use Cases → "Manage messaging & content on Instagram"
+   → If you don't see "Customize", your app might not have the right use case
 
-❌ "Can't find OAuth Redirect URI settings"
-   → Facebook keeps moving this around (fuck them)
-   → Look in: Customize, Use cases, Products → Instagram
-   → Or just send me a screenshot, I'll tell you where it is
+❌ "Insufficient permissions" error
+   → Make sure you completed Step 5 (Add required permissions)
+   → Enable: instagram_business_basic, instagram_business_content_publish
+
+❌ "Invalid access token"
+   → Token might be expired (60 days max)
+   → Re-run: staticstripes auth --upload-name YOUR_UPLOAD_NAME
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REFERENCE LINKS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 • Facebook Apps Dashboard:
   https://developers.facebook.com/apps/
+
+• Instagram Graph API docs:
+  https://developers.facebook.com/docs/instagram-api/
+
+• ngrok download:
+  https://ngrok.com/download
+
+• Cloudflare Tunnel:
+  https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 `;

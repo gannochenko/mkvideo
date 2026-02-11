@@ -1,4 +1,4 @@
-import { AuthStrategy } from '../auth-strategy';
+import { AuthStrategy, AuthOptions } from '../auth-strategy';
 import { YouTubeUploader } from '../../youtube-uploader.js';
 import open from 'open';
 import http from 'http';
@@ -16,7 +16,11 @@ export class YouTubeAuthStrategy implements AuthStrategy {
     return 'youtube';
   }
 
-  async execute(uploadName: string, projectPath: string): Promise<void> {
+  async execute(
+    uploadName: string,
+    projectPath: string,
+    _options?: AuthOptions,
+  ): Promise<void> {
     console.log(`🔐 YouTube Authentication Setup\n`);
 
     const rl = readline.createInterface({
