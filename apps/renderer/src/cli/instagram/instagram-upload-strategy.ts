@@ -4,6 +4,7 @@ import { Upload } from '../../type';
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 import ejs from 'ejs';
+import { makeRequest } from '../../lib/net';
 
 /**
  * Instagram credentials format stored in .auth/<upload-name>.json
@@ -191,19 +192,11 @@ export class InstagramUploadStrategy implements UploadStrategy {
     const url = `${this.GRAPH_API_BASE}/${this.API_VERSION}/${credentials.igUserId}/media`;
 
     try {
-      const response = await fetch(url, {
+      const data = await makeRequest<{ id?: string }>({
+        url,
         method: 'POST',
         body: params,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          `Graph API error: ${JSON.stringify(errorData, null, 2)}`,
-        );
-      }
-
-      const data = (await response.json()) as { id?: string };
 
       if (!data.id) {
         throw new Error('No container ID returned from API');
@@ -243,16 +236,10 @@ export class InstagramUploadStrategy implements UploadStrategy {
       const url = `${this.GRAPH_API_BASE}/${this.API_VERSION}/${containerId}?${params.toString()}`;
 
       try {
-        const response = await fetch(url);
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            `Failed to check status: ${JSON.stringify(errorData, null, 2)}`,
-          );
-        }
-
-        const data = (await response.json()) as { status_code?: string };
+        const data = await makeRequest<{ status_code?: string }>({
+          url,
+          method: 'GET',
+        });
 
         if (data.status_code === 'FINISHED') {
           console.log(`✅ Video processed and ready!`);
@@ -297,19 +284,11 @@ export class InstagramUploadStrategy implements UploadStrategy {
     const url = `${this.GRAPH_API_BASE}/${this.API_VERSION}/${credentials.igUserId}/media_publish`;
 
     try {
-      const response = await fetch(url, {
+      const data = await makeRequest<{ id?: string }>({
+        url,
         method: 'POST',
         body: params,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          `Graph API error: ${JSON.stringify(errorData, null, 2)}`,
-        );
-      }
-
-      const data = (await response.json()) as { id?: string };
 
       if (!data.id) {
         throw new Error('No media ID returned from API');
@@ -401,17 +380,10 @@ export class InstagramUploadStrategy implements UploadStrategy {
     const url = `${this.GRAPH_API_BASE}/${this.API_VERSION}/${mediaId}?${params.toString()}`;
 
     try {
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.log(
-          `   Warning: Failed to get permalink: ${JSON.stringify(errorData)}`,
-        );
-        return `https://www.instagram.com/ (check your profile)`;
-      }
-
-      const data = (await response.json()) as { permalink?: string };
+      const data = await makeRequest<{ permalink?: string }>({
+        url,
+        method: 'GET',
+      });
 
       if (!data.permalink) {
         return `https://www.instagram.com/ (check your profile)`;

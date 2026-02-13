@@ -5,7 +5,7 @@ export interface HttpRequestOptions {
   url: string;
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
   headers?: Record<string, string>;
-  body?: unknown;
+  body?: unknown | URLSearchParams;
 }
 
 /**
@@ -18,13 +18,29 @@ export async function makeRequest<T>(options: HttpRequestOptions): Promise<T> {
     const urlObj = new URL(options.url);
     const protocol = urlObj.protocol === 'https:' ? https : http;
 
+    // Determine content type and serialize body
+    let bodyString: string | undefined;
+    let defaultContentType: string;
+
+    if (options.body) {
+      if (options.body instanceof URLSearchParams) {
+        bodyString = options.body.toString();
+        defaultContentType = 'application/x-www-form-urlencoded';
+      } else {
+        bodyString = JSON.stringify(options.body);
+        defaultContentType = 'application/json';
+      }
+    } else {
+      defaultContentType = 'application/json';
+    }
+
     const requestOptions = {
       hostname: urlObj.hostname,
       port: urlObj.port || (protocol === https ? 443 : 80),
       path: urlObj.pathname + urlObj.search,
       method: options.method,
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': defaultContentType,
         ...options.headers,
       },
     };
@@ -62,8 +78,8 @@ export async function makeRequest<T>(options: HttpRequestOptions): Promise<T> {
       reject(new Error(`Request failed: ${error.message}`));
     });
 
-    if (options.body) {
-      req.write(JSON.stringify(options.body));
+    if (bodyString) {
+      req.write(bodyString);
     }
 
     req.end();

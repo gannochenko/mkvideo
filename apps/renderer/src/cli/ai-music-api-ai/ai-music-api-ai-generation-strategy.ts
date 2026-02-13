@@ -1,23 +1,20 @@
 import { AIGenerationStrategy, AIAssetConfig } from '../ai-generation-strategy';
-import { resolve } from 'path';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { resolve, dirname, basename, extname } from 'path';
+import { existsSync, readFileSync } from 'fs';
 import { makeRequest, downloadFile } from '../../lib/net';
+import { writeFile } from '../../lib/file';
 
 interface MusicAPICredentials {
   apiKey: string;
 }
 
 interface MusicAPICreateResponse {
+  code: number;
+  message: string;
   task_id: string;
-  state: string;
-  message?: string;
-}
-
-interface MusicAPITaskResponse {
-  task_id: string;
-  state: string; // 'pending', 'processing', 'succeeded', 'failed'
-  audio_url?: string;
-  error_message?: string;
+  data?: {
+    state?: string;
+  };
 }
 
 /**
@@ -40,7 +37,10 @@ export class AIMusicAPIGenerationStrategy implements AIGenerationStrategy {
   }
 
   async generate(config: AIAssetConfig, projectPath: string): Promise<void> {
-    const credentials = this.loadCredentials(config.integrationName, projectPath);
+    const credentials = this.loadCredentials(
+      config.integrationName,
+      projectPath,
+    );
     const model = config.model || this.DEFAULT_MODEL;
     const duration = config.duration || this.DEFAULT_DURATION;
 
@@ -50,22 +50,38 @@ export class AIMusicAPIGenerationStrategy implements AIGenerationStrategy {
     console.log(
       `  Using API key: ${credentials.apiKey.substring(0, 10)}... (length: ${credentials.apiKey.length})`,
     );
-    const taskId = await this.createMusicGenerationTask(
-      credentials.apiKey,
-      config.prompt,
-      model,
-      duration,
-    );
+    const taskId = '8a525dac-1a4c-4eca-92d3-0720308f949b';
+    // const taskId = await this.createMusicGenerationTask(
+    //   credentials.apiKey,
+    //   config.prompt,
+    //   model,
+    //   duration,
+    // );
 
     console.log(`  Task ID: ${taskId}`);
     console.log(`  Waiting for generation to complete...`);
 
-    const audioUrl = await this.pollForCompletion(credentials.apiKey, taskId);
+    const audioUrls = await this.pollForCompletion(credentials.apiKey, taskId);
 
-    console.log(`  Downloading audio file...`);
-    await this.downloadAudio(audioUrl, config.assetPath);
+    console.log(`  Downloading ${audioUrls.length} audio file(s)...`);
 
-    console.log(`  Audio saved to: ${config.assetPath}`);
+    // Download the first file to the main asset path
+    await this.downloadAudio(audioUrls[0], config.assetPath);
+    console.log(`  Primary audio saved to: ${config.assetPath}`);
+
+    // Download remaining files to alternative paths in the same directory
+    if (audioUrls.length > 1) {
+      const assetDir = dirname(config.assetPath);
+      const assetExt = extname(config.assetPath);
+      const assetBase = basename(config.assetPath, assetExt);
+
+      for (let i = 1; i < audioUrls.length; i++) {
+        const altNumber = String(i).padStart(2, '0');
+        const altPath = resolve(assetDir, `${assetBase}_alt_${altNumber}${assetExt}`);
+        await this.downloadAudio(audioUrls[i], altPath);
+        console.log(`  Alternative ${i} saved to: ${altPath}`);
+      }
+    }
   }
 
   /**
@@ -75,7 +91,11 @@ export class AIMusicAPIGenerationStrategy implements AIGenerationStrategy {
     integrationName: string,
     projectPath: string,
   ): MusicAPICredentials {
-    const authFilePath = resolve(projectPath, '.auth', `${integrationName}.json`);
+    const authFilePath = resolve(
+      projectPath,
+      '.auth',
+      `${integrationName}.json`,
+    );
 
     if (!existsSync(authFilePath)) {
       throw new Error(
@@ -115,6 +135,7 @@ export class AIMusicAPIGenerationStrategy implements AIGenerationStrategy {
    * Creates a music generation task
    * Returns the task ID
    */
+  // @ts-expect-error fuck
   private async createMusicGenerationTask(
     apiKey: string,
     prompt: string,
@@ -151,16 +172,16 @@ export class AIMusicAPIGenerationStrategy implements AIGenerationStrategy {
 
   /**
    * Polls for task completion
-   * Returns the audio URL when ready
+   * Returns all audio URLs when ready
    */
   private async pollForCompletion(
     apiKey: string,
     taskId: string,
-  ): Promise<string> {
+  ): Promise<string[]> {
     const endpoint = `${this.API_BASE_URL}/sonic/task/${taskId}`;
 
     for (let attempt = 0; attempt < this.MAX_POLL_ATTEMPTS; attempt++) {
-      const response = await makeRequest<MusicAPITaskResponse>({
+      const response = await makeRequest<any>({
         url: endpoint,
         method: 'GET',
         headers: {
@@ -168,24 +189,57 @@ export class AIMusicAPIGenerationStrategy implements AIGenerationStrategy {
         },
       });
 
-      if (response.state === 'succeeded') {
-        if (!response.audio_url) {
-          throw new Error('Task succeeded but no audio URL returned');
-        }
-        return response.audio_url;
+      // API returns an array of clips in the data field
+      if (!response.data || !Array.isArray(response.data)) {
+        throw new Error(
+          `Unexpected API response format: ${JSON.stringify(response)}`,
+        );
       }
 
-      if (response.state === 'failed') {
+      if (response.data.length === 0) {
+        throw new Error('No clips returned in response');
+      }
+
+      // Check the first clip to determine overall status
+      const firstClip = response.data[0];
+      const state = firstClip.state;
+      const errorMessage = firstClip.error_message;
+
+      console.log(
+        `  Status: ${state}... (${response.data.length} clip(s), attempt ${attempt + 1}/${this.MAX_POLL_ATTEMPTS})`,
+      );
+
+      if (
+        state === 'succeeded' ||
+        state === 'completed' ||
+        state === 'success'
+      ) {
+        // Collect all audio URLs from successful clips
+        const audioUrls: string[] = [];
+        for (const clip of response.data) {
+          if (clip.audio_url) {
+            audioUrls.push(clip.audio_url);
+          }
+        }
+
+        if (audioUrls.length === 0) {
+          throw new Error('Task succeeded but no audio URLs returned');
+        }
+
+        console.log(
+          `  Found ${audioUrls.length} generated clip(s)`,
+        );
+        return audioUrls;
+      }
+
+      if (state === 'failed' || state === 'error') {
         throw new Error(
-          `Music generation failed: ${response.error_message || 'Unknown error'}`,
+          `Music generation failed: ${errorMessage || 'Unknown error'}`,
         );
       }
 
       // Still processing, wait before next poll
       if (attempt < this.MAX_POLL_ATTEMPTS - 1) {
-        console.log(
-          `  Status: ${response.state}... (attempt ${attempt + 1}/${this.MAX_POLL_ATTEMPTS})`,
-        );
         await this.sleep(this.POLL_INTERVAL_MS);
       }
     }
@@ -200,7 +254,8 @@ export class AIMusicAPIGenerationStrategy implements AIGenerationStrategy {
    */
   private async downloadAudio(url: string, outputPath: string): Promise<void> {
     const buffer = await downloadFile(url);
-    writeFileSync(outputPath, buffer);
+
+    writeFile(outputPath, buffer);
   }
 
   /**
