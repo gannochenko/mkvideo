@@ -137,7 +137,6 @@ export class AIMusicAPIGenerationStrategy implements AIGenerationStrategy {
    * Creates a music generation task
    * Returns the task ID
    */
-  // @ts-expect-error fuck
   private async createMusicGenerationTask(
     apiKey: string,
     prompt: string,
