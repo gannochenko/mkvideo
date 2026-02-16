@@ -3,22 +3,14 @@ import { Project } from '../../project';
 import { Upload } from '../../type';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { readFileSync, existsSync } from 'fs';
-import { resolve } from 'path';
-
-/**
- * S3 credentials format stored in .auth/<upload-name>.json
- */
-interface S3Credentials {
-  accessKeyId: string;
-  secretAccessKey: string;
-}
+import { CredentialsManager, S3Credentials } from '../credentials';
 
 /**
  * S3 upload strategy implementation
  * Supports generic S3-compatible storage (AWS S3, DigitalOcean Spaces, etc.)
  */
 export class S3UploadStrategy implements UploadStrategy {
-  constructor() {}
+  constructor(private credentialsManager?: CredentialsManager) {}
 
   getTag(): string {
     return 's3';
@@ -52,15 +44,24 @@ export class S3UploadStrategy implements UploadStrategy {
       );
     }
 
-    // Load credentials from .auth/<upload-name>.json
-    const authDir = resolve(projectPath, '.auth');
-    const credentialsPath = resolve(authDir, `${upload.name}.json`);
+    // Load credentials from local .auth/<upload-name>.json or global ~/.staticstripes/auth/<upload-name>.json
+    const manager =
+      this.credentialsManager ||
+      new CredentialsManager(projectPath, upload.name);
 
-    if (!existsSync(credentialsPath)) {
+    let credentials: S3Credentials;
+    try {
+      credentials = manager.load<S3Credentials>([
+        'accessKeyId',
+        'secretAccessKey',
+      ]);
+    } catch (error) {
+      // Add helpful context about S3 credentials format
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(
-        `❌ Error: S3 credentials not found\n\n` +
-          `Expected location: ${credentialsPath}\n\n` +
-          `💡 Create a JSON file with your S3 credentials:\n` +
+        `${errorMessage}\n\n` +
+          `💡 S3 credentials file should contain:\n` +
           `{\n` +
           `  "accessKeyId": "YOUR_ACCESS_KEY",\n` +
           `  "secretAccessKey": "YOUR_SECRET_KEY"\n` +
@@ -68,24 +69,6 @@ export class S3UploadStrategy implements UploadStrategy {
           `📖 Get credentials from:\n` +
           `   • AWS: IAM → Users → Security Credentials\n` +
           `   • DigitalOcean: API → Spaces Keys\n`,
-      );
-    }
-
-    console.log(`🔐 Loading credentials from: ${credentialsPath}`);
-
-    let credentials: S3Credentials;
-    try {
-      const credentialsJson = readFileSync(credentialsPath, 'utf-8');
-      credentials = JSON.parse(credentialsJson);
-
-      if (!credentials.accessKeyId || !credentials.secretAccessKey) {
-        throw new Error('Missing accessKeyId or secretAccessKey');
-      }
-    } catch (error) {
-      throw new Error(
-        `❌ Error: Failed to parse S3 credentials from ${credentialsPath}\n` +
-          `Ensure the file contains valid JSON with accessKeyId and secretAccessKey.\n` +
-          `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
 

@@ -1,18 +1,9 @@
 import { UploadStrategy } from '../upload-strategy';
 import { Project } from '../../project';
 import { Upload } from '../../type';
-import { readFileSync, existsSync } from 'fs';
-import { resolve } from 'path';
 import ejs from 'ejs';
 import { makeRequest } from '../../lib/net';
-
-/**
- * Instagram credentials format stored in .auth/<upload-name>.json
- */
-interface InstagramCredentials {
-  accessToken: string; // Long-lived Instagram Graph API access token
-  igUserId: string; // Instagram User ID (not the username)
-}
+import { CredentialsManager, InstagramCredentials } from '../credentials';
 
 /**
  * Instagram upload strategy implementation
@@ -22,7 +13,7 @@ export class InstagramUploadStrategy implements UploadStrategy {
   private readonly API_VERSION = 'v21.0';
   private readonly GRAPH_API_BASE = 'https://graph.instagram.com';
 
-  constructor() {}
+  constructor(private credentialsManager?: CredentialsManager) {}
 
   getTag(): string {
     return 'instagram';
@@ -47,36 +38,32 @@ export class InstagramUploadStrategy implements UploadStrategy {
     const { caption, shareToFeed, thumbOffset, coverUrl, videoUrl } =
       upload.instagram;
 
-    // Load credentials from .auth/<upload-name>.json
-    const authDir = resolve(projectPath, '.auth');
-    const credentialsPath = resolve(authDir, `${upload.name}.json`);
-
-    if (!existsSync(credentialsPath)) {
-      throw new Error(
-        `❌ Error: Instagram credentials not found\n\n` +
-          `Expected location: ${credentialsPath}\n\n` +
-          `💡 Run authentication wizard:\n` +
-          `   staticstripes auth --upload-name ${upload.name}\n\n` +
-          `📖 Or view detailed setup instructions:\n` +
-          `   staticstripes auth-help instagram\n`,
-      );
-    }
-
-    console.log(`🔐 Loading credentials from: ${credentialsPath}`);
+    // Load credentials from local .auth/<upload-name>.json or global ~/.staticstripes/auth/<upload-name>.json
+    const manager =
+      this.credentialsManager ||
+      new CredentialsManager(projectPath, upload.name);
 
     let credentials: InstagramCredentials;
     try {
-      const credentialsJson = readFileSync(credentialsPath, 'utf-8');
-      credentials = JSON.parse(credentialsJson);
-
-      if (!credentials.accessToken || !credentials.igUserId) {
-        throw new Error('Missing accessToken or igUserId');
-      }
+      credentials = manager.load<InstagramCredentials>([
+        'accessToken',
+        'igUserId',
+      ]);
     } catch (error) {
+      // Add helpful context about Instagram credentials
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(
-        `❌ Error: Failed to parse Instagram credentials from ${credentialsPath}\n` +
-          `Ensure the file contains valid JSON with accessToken and igUserId.\n` +
-          `Error: ${error instanceof Error ? error.message : String(error)}`,
+        `${errorMessage}\n\n` +
+          `💡 Instagram credentials file should contain:\n` +
+          `{\n` +
+          `  "accessToken": "YOUR_LONG_LIVED_ACCESS_TOKEN",\n` +
+          `  "igUserId": "YOUR_INSTAGRAM_USER_ID"\n` +
+          `}\n\n` +
+          `📖 Run authentication wizard:\n` +
+          `   staticstripes auth --upload-name ${upload.name}\n\n` +
+          `Or view detailed setup instructions:\n` +
+          `   staticstripes auth-help instagram\n`,
       );
     }
 

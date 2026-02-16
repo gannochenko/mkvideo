@@ -1,12 +1,8 @@
 import { AIGenerationStrategy, AIAssetConfig } from '../ai-generation-strategy';
 import { resolve, dirname, basename, extname } from 'path';
-import { existsSync, readFileSync } from 'fs';
 import { makeRequest, downloadFile } from '../../lib/net';
 import { writeFile } from '../../lib/file';
-
-interface MusicAPICredentials {
-  apiKey: string;
-}
+import { CredentialsManager, MusicAPICredentials } from '../credentials';
 
 interface MusicAPICreateResponse {
   code: number;
@@ -28,6 +24,8 @@ export class AIMusicAPIGenerationStrategy implements AIGenerationStrategy {
   private readonly DEFAULT_MODEL = 'sonic-v4-5'; // Default model if none specified
   private readonly DEFAULT_DURATION = 30; // Default duration in seconds if none specified
 
+  constructor(private credentialsManager?: CredentialsManager) {}
+
   getTag(): string {
     return 'ai-music-api-ai';
   }
@@ -37,10 +35,27 @@ export class AIMusicAPIGenerationStrategy implements AIGenerationStrategy {
   }
 
   async generate(config: AIAssetConfig, projectPath: string): Promise<void> {
-    const credentials = this.loadCredentials(
-      config.integrationName,
-      projectPath,
-    );
+    // Load credentials from local .auth/<integration-name>.json or global ~/.staticstripes/auth/<integration-name>.json
+    const manager =
+      this.credentialsManager ||
+      new CredentialsManager(projectPath, config.integrationName);
+
+    let credentials: MusicAPICredentials;
+    try {
+      credentials = manager.load<MusicAPICredentials>(['apiKey']);
+      // Trim whitespace from API key
+      credentials.apiKey = credentials.apiKey.trim();
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `${errorMessage}\n\n` +
+          `💡 AI Music API credentials file should contain:\n` +
+          `{\n` +
+          `  "apiKey": "your-api-key-here"\n` +
+          `}\n`,
+      );
+    }
     const model = config.model || this.DEFAULT_MODEL;
     const duration = config.duration || this.DEFAULT_DURATION;
 
@@ -86,52 +101,6 @@ export class AIMusicAPIGenerationStrategy implements AIGenerationStrategy {
     }
   }
 
-  /**
-   * Loads credentials from .auth/<integrationName>.json
-   */
-  private loadCredentials(
-    integrationName: string,
-    projectPath: string,
-  ): MusicAPICredentials {
-    const authFilePath = resolve(
-      projectPath,
-      '.auth',
-      `${integrationName}.json`,
-    );
-
-    if (!existsSync(authFilePath)) {
-      throw new Error(
-        `Credentials file not found: ${authFilePath}\n` +
-          `Please create the file with the following format:\n` +
-          `{\n  "apiKey": "your-api-key-here"\n}`,
-      );
-    }
-
-    try {
-      const fileContent = readFileSync(authFilePath, 'utf-8');
-      const credentials = JSON.parse(fileContent) as MusicAPICredentials;
-
-      if (!credentials.apiKey) {
-        throw new Error(
-          `Invalid credentials file: ${authFilePath}\n` +
-            `Missing "apiKey" field`,
-        );
-      }
-
-      // Trim whitespace from API key
-      return {
-        apiKey: credentials.apiKey.trim(),
-      };
-    } catch (error) {
-      if (error instanceof SyntaxError) {
-        throw new Error(
-          `Invalid JSON in credentials file: ${authFilePath}\n` +
-            `${error.message}`,
-        );
-      }
-      throw error;
-    }
-  }
 
   /**
    * Creates a music generation task

@@ -4,7 +4,7 @@ import { YouTubeUpload } from '../../type';
 import { resolve } from 'path';
 import { YouTubeUploader } from '../../youtube-uploader';
 import ejs from 'ejs';
-import { readFileSync, existsSync } from 'fs';
+import { CredentialsManager, YouTubeCredentials } from '../credentials';
 
 export interface YouTubeUploadOptions {
   uploadName: string;
@@ -17,6 +17,8 @@ export interface YouTubeUploadOptions {
  * YouTube upload strategy implementation
  */
 export class YouTubeUploadStrategy implements UploadStrategy {
+  constructor(private credentialsManager?: CredentialsManager) {}
+
   getTag(): string {
     return 'youtube';
   }
@@ -30,34 +32,27 @@ export class YouTubeUploadStrategy implements UploadStrategy {
     upload: YouTubeUpload,
     projectPath: string,
   ): Promise<void> {
-    // Read credentials from .auth file
-    const authDir = resolve(projectPath, '.auth');
-    const credentialsPath = resolve(authDir, `${upload.name}.json`);
+    // Load credentials from local .auth/<upload-name>.json or global ~/.staticstripes/auth/<upload-name>.json
+    const manager =
+      this.credentialsManager ||
+      new CredentialsManager(projectPath, upload.name);
 
-    if (!existsSync(credentialsPath)) {
+    let credentials: YouTubeCredentials;
+    try {
+      credentials = manager.load<YouTubeCredentials>([
+        'clientId',
+        'clientSecret',
+      ]);
+    } catch (error) {
+      // Add helpful context about YouTube credentials
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(
-        `❌ Error: YouTube credentials not found\n\n` +
-          `Expected location: ${credentialsPath}\n\n` +
+        `${errorMessage}\n\n` +
           `💡 Run authentication wizard:\n` +
           `   staticstripes auth --upload-name ${upload.name}\n\n` +
           `📖 Or view setup instructions:\n` +
           `   staticstripes auth-help youtube\n`,
-      );
-    }
-
-    let credentials: { clientId?: string; clientSecret?: string };
-    try {
-      const credentialsJson = readFileSync(credentialsPath, 'utf-8');
-      credentials = JSON.parse(credentialsJson);
-
-      if (!credentials.clientId || !credentials.clientSecret) {
-        throw new Error('Missing clientId or clientSecret');
-      }
-    } catch (error) {
-      throw new Error(
-        `❌ Error: Failed to parse YouTube credentials from ${credentialsPath}\n` +
-          `Ensure the file contains clientId and clientSecret.\n` +
-          `Error: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
 
