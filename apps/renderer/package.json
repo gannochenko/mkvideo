@@ -44,6 +44,7 @@
     "vitest": "^4.0.16"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.986.0",
     "@types/css-tree": "^2.3.11",
     "commander": "^14.0.3",
     "css-tree": "^3.1.0",
