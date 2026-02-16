@@ -10,6 +10,7 @@ import {
 } from '../../ffmpeg.js';
 import { getAssetDuration } from '../../ffprobe.js';
 import { cleanupStaleCache } from '../../container-renderer.js';
+import { formatDuration } from '../../time-utils.js';
 
 export function registerGenerateCommand(
   program: Command,
@@ -217,14 +218,21 @@ export function registerGenerateCommand(
 
           console.log('\n=== Starting Render ===\n');
 
+          // Track rendering duration
+          const renderStartTime = Date.now();
+
           // Run FFmpeg
           await runFFMpeg(ffmpegCommand);
+
+          const renderEndTime = Date.now();
+          const renderingDuration = renderEndTime - renderStartTime;
 
           const resultPath = output.path;
           console.log(`\n✅ Output file: ${resultPath}`);
 
-          const resultDuration = await getAssetDuration(resultPath);
-          console.log(`⏱️  Duration: ${resultDuration}ms`);
+          const videoDuration = await getAssetDuration(resultPath);
+          console.log(`📹 Video duration: ${formatDuration(videoDuration)}`);
+          console.log(`⏱️  Rendering duration: ${formatDuration(renderingDuration)}`);
         }
 
         // Clean up stale cache entries after all outputs are rendered
