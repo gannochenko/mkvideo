@@ -3,8 +3,6 @@ import "./App.css";
 import { VideoFrame } from "./components/VideoFrame";
 import { useAppParams } from "./hooks/useAppParams";
 
-const RENDER_COMPLETE_EVENT = "sts-render-complete";
-
 function Content({
   title = "Central Text",
   date,
@@ -53,11 +51,7 @@ function RenderingView({
 }: { title?: string; date?: string; tags?: string; extra?: string }) {
   useEffect(() => {
     document.body.style.background = "transparent";
-    // Wait for web fonts before signalling ready so Puppeteer
-    // takes the screenshot after text is fully rendered.
-    document.fonts.ready.then(() => {
-      document.dispatchEvent(new CustomEvent(RENDER_COMPLETE_EVENT));
-    });
+    (window as unknown as Record<string, unknown>)["__stsRenderComplete"] = true;
   }, []);
 
   return (

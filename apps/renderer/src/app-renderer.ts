@@ -1,11 +1,10 @@
-import puppeteer from 'puppeteer';
+import puppeteer, { Browser } from 'puppeteer';
 import { writeFile, mkdir } from 'fs/promises';
 import { resolve, isAbsolute } from 'path';
 import { existsSync } from 'fs';
 import { createHash } from 'crypto';
 import { App } from './type';
 
-const RENDER_COMPLETE_EVENT = 'sts-render-complete';
 const RENDER_TIMEOUT_MS = 5000;
 
 export interface RenderAppOptions {
@@ -17,6 +16,7 @@ export interface RenderAppOptions {
   title: string;
   date?: string;
   tags: string[];
+  browser?: Browser; // optional shared browser instance
 }
 
 export interface AppRenderResult {
@@ -49,7 +49,7 @@ function generateAppCacheKey(
  * RENDER_TIMEOUT_MS, an error is thrown.
  */
 export async function renderApp(options: RenderAppOptions): Promise<AppRenderResult> {
-  const { app, width, height, projectDir, outputName, title, date, tags } = options;
+  const { app, width, height, projectDir, outputName, title, date, tags, browser: sharedBrowser } = options;
 
   // Create cache directory
   const cacheDir = resolve(projectDir, 'cache', 'apps');
@@ -101,27 +101,37 @@ export async function renderApp(options: RenderAppOptions): Promise<AppRenderRes
 
   console.log(`\nRendering app "${app.id}" from ${url}`);
 
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
+  const ownBrowser = sharedBrowser
+    ? null
+    : await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
+  const browser = sharedBrowser ?? ownBrowser!;
+
+  const page = await browser.newPage();
 
   try {
-    const page = await browser.newPage();
     await page.setViewport({ width, height });
 
-    // Install the render-complete flag BEFORE navigation so the event
-    // cannot fire before the listener is attached (race-condition-free).
-    // Passed as a string so the Node.js TypeScript compiler doesn't complain
-    // about browser globals (window, document) that aren't in its lib.
-    await page.evaluateOnNewDocument(`
-      window.__stsRenderComplete = false;
-      document.addEventListener('${RENDER_COMPLETE_EVENT}', function () {
-        window.__stsRenderComplete = true;
-      });
-    `);
+    page.on('console', (msg) =>
+      console.log(`[app:${app.id}] console.${msg.type()}: ${msg.text()}`),
+    );
+    page.on('pageerror', (err) =>
+      console.error(`[app:${app.id}] page error: ${String(err)}`),
+    );
+    page.on('requestfailed', (req) =>
+      console.error(`[app:${app.id}] request failed: ${req.url()} — ${req.failure()?.errorText}`),
+    );
 
-    await page.goto(url);
+    // Initialise the flag before navigation. The app sets it to true directly
+    // via window.__stsRenderComplete = true inside its useEffect, so no event
+    // listener is needed on this side.
+    await page.evaluateOnNewDocument(
+      `window.__stsRenderComplete = false;`,
+    );
+
+    await page.goto(url, { waitUntil: 'networkidle0' });
 
     // Wait for the app to signal it is done rendering
     await page
@@ -130,7 +140,7 @@ export async function renderApp(options: RenderAppOptions): Promise<AppRenderRes
       })
       .catch(() => {
         throw new Error(
-          `App "${app.id}" did not dispatch "${RENDER_COMPLETE_EVENT}" within ${RENDER_TIMEOUT_MS}ms`,
+          `App "${app.id}" did not set window.__stsRenderComplete within ${RENDER_TIMEOUT_MS}ms`,
         );
       });
 
@@ -149,12 +159,13 @@ export async function renderApp(options: RenderAppOptions): Promise<AppRenderRes
 
     return { app, screenshotPath };
   } finally {
-    await browser.close();
+    await page.close();
+    if (ownBrowser) await ownBrowser.close();
   }
 }
 
 /**
- * Renders multiple apps in sequence.
+ * Renders multiple apps in sequence, reusing a single browser instance.
  */
 export async function renderApps(
   apps: App[],
@@ -169,31 +180,49 @@ export async function renderApps(
 ): Promise<AppRenderResult[]> {
   const results: AppRenderResult[] = [];
 
-  for (const app of apps) {
-    const cacheKey = generateAppCacheKey(
-      app.src,
-      app.parameters,
-      title,
-      date,
-      tags,
-      outputName,
-    );
+  // Launch once and reuse across all apps.
+  // --allow-file-access-from-files is required so Chromium allows
+  // <script type="module"> and <link> tags to load sibling files
+  // when the page itself is served via file://.
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--allow-file-access-from-files',
+    ],
+  });
 
-    if (activeCacheKeys) {
-      activeCacheKeys.add(cacheKey);
+  try {
+    for (const app of apps) {
+      const cacheKey = generateAppCacheKey(
+        app.src,
+        app.parameters,
+        title,
+        date,
+        tags,
+        outputName,
+      );
+
+      if (activeCacheKeys) {
+        activeCacheKeys.add(cacheKey);
+      }
+
+      const result = await renderApp({
+        app,
+        width,
+        height,
+        projectDir,
+        outputName,
+        title,
+        date,
+        tags,
+        browser,
+      });
+      results.push(result);
     }
-
-    const result = await renderApp({
-      app,
-      width,
-      height,
-      projectDir,
-      outputName,
-      title,
-      date,
-      tags,
-    });
-    results.push(result);
+  } finally {
+    await browser.close();
   }
 
   return results;

@@ -158,8 +158,9 @@ export function registerGenerateCommand(
             mkdirSync(outputDir, { recursive: true });
           }
 
-          // Render containers for this output (accumulate cache keys)
+          // Render containers and apps for this output (accumulate cache keys)
           await project.renderContainers(outputName, activeCacheKeys);
+          await project.renderApps(outputName, activeCacheKeys);
 
           // Print project statistics
           project.printStats();

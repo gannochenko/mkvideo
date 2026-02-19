@@ -24,7 +24,11 @@
   </sequence>
   <sequence>
     <fragment class="intro_image_message intro_duration">
-      <app src="../apps/central_text/dst" data-arguments="" data-async />
+      <app
+        src="../apps/central_text/dst"
+        data-parameters='{"outro": "true"}'
+        data-async
+      />
     </fragment>
   </sequence>
   <sequence>
@@ -34,7 +38,7 @@
     <fragment class="outro_message outro_duration" id="outro_message">
       <app
         src="../apps/central_text/dst"
-        data-parameters="{outro: true}"
+        data-parameters='{"outro": "true"}'
         data-async
       />
     </fragment>
