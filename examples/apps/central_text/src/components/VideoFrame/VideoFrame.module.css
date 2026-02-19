@@ -1,12 +1,19 @@
 .root {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
+  width: 100vw;
+  height: 100vh;
   padding: 1rem;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .frame {
-  position: relative;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  /* first center, then scale — order matters */
+  transform-origin: center center;
+  translate: -50% -50%;
   border: 1px solid gray;
   overflow: hidden;
 }
