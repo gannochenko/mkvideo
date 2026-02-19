@@ -1,0 +1,55 @@
+.panel {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 100;
+}
+
+.button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(30, 30, 30, 0.85);
+  color: #ccc;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-family: sans-serif;
+  backdrop-filter: blur(6px);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  text-align: left;
+  min-width: 7rem;
+}
+
+.button:hover {
+  background: rgba(60, 60, 60, 0.9);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.active {
+  background: rgba(255, 255, 255, 0.9);
+  color: #111;
+  border-color: transparent;
+}
+
+.active:hover {
+  background: #fff;
+  color: #111;
+}
+
+.dims {
+  font-size: 0.65rem;
+  opacity: 0.6;
+  letter-spacing: 0.02em;
+}
+
+.active .dims {
+  opacity: 0.5;
+}
