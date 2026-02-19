@@ -7,6 +7,7 @@ import {
   SequenceDefinition,
   Fragment,
   Container,
+  App,
   FFmpegOption,
   Upload,
   AIProvider,
@@ -120,6 +121,7 @@ export class HTMLProjectParser {
       aiProviders,
       title,
       date,
+      globalTags,
       cssText,
       this.projectPath,
     );
@@ -1609,8 +1611,9 @@ export class HTMLProjectParser {
     // 3. Check enabled flag from display property
     const enabled = this.parseEnabled(styles['display']);
 
-    // 4. Extract container if present (first one only)
+    // 4. Extract container or app if present (first one only, mutually exclusive)
     const container = this.extractFragmentContainer(element);
+    const app = container ? undefined : this.extractFragmentApp(element);
 
     // 5. Parse trimLeft from -trim-start property
     const trimLeft = this.parseTrimStart(styles['-trim-start']);
@@ -1687,6 +1690,7 @@ export class HTMLProjectParser {
       chromakeyColor: chromakeyData.chromakeyColor,
       ...(visualFilter && { visualFilter }), // Add visualFilter if present
       ...(container && { container }), // Add container if present
+      ...(app && { app }), // Add app if present
       ...(timecodeLabel && { timecodeLabel }), // Add timecode label if present
     };
   }
@@ -1735,6 +1739,45 @@ export class HTMLProjectParser {
           id,
           htmlContent,
         };
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Extracts the first <app> child from a fragment element.
+   * The src attribute points to the app's dst directory (relative to project).
+   * The data-parameters attribute is parsed as JSON and merged into query params.
+   */
+  private extractFragmentApp(element: Element): App | undefined {
+    if (!('children' in element) || !element.children) {
+      return undefined;
+    }
+
+    for (const child of element.children) {
+      if (child.type === 'tag' && child.name === 'app') {
+        const appElement = child as Element;
+
+        const id =
+          appElement.attribs?.id ||
+          `app_${Math.random().toString(36).substring(2, 11)}`;
+
+        const src = appElement.attribs?.src ?? '';
+
+        let parameters: Record<string, string> = {};
+        const dataParameters = appElement.attribs?.['data-parameters'];
+        if (dataParameters) {
+          try {
+            parameters = JSON.parse(dataParameters);
+          } catch {
+            console.warn(
+              `Warning: invalid JSON in data-parameters for app "${id}": ${dataParameters}`,
+            );
+          }
+        }
+
+        return { id, src, parameters };
       }
     }
 

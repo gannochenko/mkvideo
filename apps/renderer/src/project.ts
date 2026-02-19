@@ -12,6 +12,7 @@ import { Sequence } from './sequence';
 import { FilterBuffer } from './stream';
 import { ExpressionContext, FragmentData } from './expression-parser';
 import { renderContainers } from './container-renderer';
+import { renderApps } from './app-renderer';
 import { dirname } from 'path';
 
 export class Project {
@@ -27,6 +28,7 @@ export class Project {
     private aiProviders: Map<string, AIProvider>,
     private title: string,
     private date: string | undefined,
+    private tags: string[],
     private cssText: string,
     private projectPath: string,
   ) {
@@ -146,6 +148,10 @@ export class Project {
     return this.date;
   }
 
+  public getTags(): string[] {
+    return this.tags;
+  }
+
   public getCssText(): string {
     return this.cssText;
   }
@@ -210,6 +216,72 @@ export class Project {
 
   public getAudioInputLabelByAssetName(name: string): Label {
     return this.assetManager.getAudioInputLabelByAssetName(name);
+  }
+
+  /**
+   * Renders all apps and creates virtual assets for them.
+   * Apps must dispatch "sts-render-complete" on document when ready,
+   * or rendering will fail after a 5-second timeout.
+   */
+  public async renderApps(
+    outputName: string,
+    activeCacheKeys?: Set<string>,
+  ): Promise<void> {
+    const output = this.getOutput(outputName);
+    if (!output) {
+      throw new Error(`Output "${outputName}" not found`);
+    }
+
+    const fragmentsWithApps = this.sequencesDefinitions.flatMap((seq) =>
+      seq.fragments.filter((frag) => frag.app),
+    );
+
+    if (fragmentsWithApps.length === 0) {
+      return;
+    }
+
+    console.log('\n=== Rendering Apps ===\n');
+
+    const apps = fragmentsWithApps.map((frag) => frag.app!);
+    const projectDir = dirname(this.projectPath);
+
+    const results = await renderApps(
+      apps,
+      output.resolution.width,
+      output.resolution.height,
+      projectDir,
+      outputName,
+      this.title,
+      this.date,
+      this.tags,
+      activeCacheKeys,
+    );
+
+    // Create virtual assets and update fragment assetNames
+    for (const result of results) {
+      const virtualAssetName = result.app.id;
+
+      const virtualAsset = {
+        name: virtualAssetName,
+        path: result.screenshotPath,
+        type: 'image' as const,
+        duration: 0,
+        width: output.resolution.width,
+        height: output.resolution.height,
+        rotation: 0,
+        hasVideo: true,
+        hasAudio: false,
+      };
+
+      this.assetManager.addVirtualAsset(virtualAsset);
+
+      const fragment = fragmentsWithApps.find(
+        (frag) => frag.app?.id === result.app.id,
+      );
+      if (fragment) {
+        fragment.assetName = virtualAssetName;
+      }
+    }
   }
 
   /**

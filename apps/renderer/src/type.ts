@@ -13,6 +13,12 @@ export type Container = {
   htmlContent: string;
 };
 
+export type App = {
+  id: string;
+  src: string; // path to the app's dst directory (relative to project)
+  parameters: Record<string, string>; // extra params from data-parameters
+};
+
 export type ParsedHtml = {
   ast: Document;
   css: Map<Element, CSSProperties>;
@@ -61,6 +67,7 @@ export type Fragment = {
   chromakeyColor: string;
   visualFilter?: string; // Optional visual filter (e.g., 'instagram-nashville')
   container?: Container; // Optional container attached to this fragment
+  app?: App; // Optional app attached to this fragment
   timecodeLabel?: string; // Optional label for timecode (from data-timecode attribute)
 };
 
