@@ -5,18 +5,16 @@ import { useAppParams } from "./hooks/useAppParams";
 function Content({
   title = "Central Text",
   date,
-  emoji,
+  tags,
 }: {
   title?: string;
   date?: string;
-  emoji?: string;
+  tags?: string;
 }) {
-  const titleWords = title.split(" ");
-
   return (
     <div className="text_alignment">
       <div className="text_outline">
-        {titleWords.map((word, i) => (
+        {title.split(" ").map((word, i) => (
           <span key={i}>{word}</span>
         ))}
       </div>
@@ -27,9 +25,9 @@ function Content({
           ))}
         </div>
       )}
-      {emoji && (
+      {tags && (
         <div className="text_outline text_outline__small">
-          <span>{emoji}</span>
+          <span>{tags}</span>
         </div>
       )}
     </div>
@@ -37,20 +35,20 @@ function Content({
 }
 
 function App() {
-  const { title, date, emoji, rendering } = useAppParams();
+  const { title, date, tags, rendering } = useAppParams();
 
   if (rendering) {
     document.body.style.background = "transparent";
     return (
       <div className="rendering_container">
-        <Content title={title} date={date} emoji={emoji} />
+        <Content title={title} date={date} tags={tags} />
       </div>
     );
   }
 
   return (
-    <VideoFrame>
-      <Content title={title} date={date} emoji={emoji} />
+    <VideoFrame initialContent={{ title, date, tags }}>
+      {(content) => <Content {...content} />}
     </VideoFrame>
   );
 }

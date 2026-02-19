@@ -3,7 +3,7 @@ import { useMemo } from "react";
 export interface AppParams {
   title?: string;
   date?: string;
-  emoji?: string;
+  tags?: string;
   rendering: boolean;
 }
 
@@ -13,7 +13,7 @@ export function useAppParams(): AppParams {
     return {
       title: p.get("title") ?? undefined,
       date: p.get("date") ?? undefined,
-      emoji: p.get("emoji") ?? undefined,
+      tags: p.get("tags") ?? undefined,
       rendering: p.has("rendering"),
     };
   }, []);
