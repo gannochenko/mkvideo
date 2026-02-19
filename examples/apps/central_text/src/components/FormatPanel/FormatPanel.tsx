@@ -9,7 +9,6 @@ export interface Format {
 export const FORMATS: Format[] = [
   { label: "YouTube", width: 1920, height: 1080 },
   { label: "YT Shorts", width: 1080, height: 1920 },
-  { label: "IG Reels", width: 1080, height: 1920 },
 ];
 
 interface FormatPanelProps {

@@ -1,29 +1,57 @@
-import { useState } from "react";
 import "./App.css";
 import { VideoFrame } from "./components/VideoFrame";
-import { FormatPanel, FORMATS, type Format } from "./components/FormatPanel";
+import { useAppParams } from "./hooks/useAppParams";
 
-function App() {
-  const [format, setFormat] = useState<Format>(FORMATS[1]); // default: YT Shorts
+function Content({
+  title = "Central Text",
+  date,
+  emoji,
+}: {
+  title?: string;
+  date?: string;
+  emoji?: string;
+}) {
+  const titleWords = title.split(" ");
 
   return (
-    <>
-      <VideoFrame width={format.width} height={format.height}>
-        <div className="text_alignment">
-          <div className="text_outline">
-            <span>Christmas</span> <span>Morning</span> <span>in</span>
-            <span>Liberec</span>
-          </div>
-          <div className="text_outline text_outline__small">
-            <span>Dec</span> <span>24</span> <span>2025</span>
-          </div>
-          <div className="text_outline text_outline__small">
-            <span>❄️ 🏔️ 🌨️</span>
-          </div>
+    <div className="text_alignment">
+      <div className="text_outline">
+        {titleWords.map((word, i) => (
+          <span key={i}>{word}</span>
+        ))}
+      </div>
+      {date && (
+        <div className="text_outline text_outline__small">
+          {date.split(" ").map((part, i) => (
+            <span key={i}>{part}</span>
+          ))}
         </div>
-      </VideoFrame>
-      <FormatPanel selected={format} onSelect={setFormat} />
-    </>
+      )}
+      {emoji && (
+        <div className="text_outline text_outline__small">
+          <span>{emoji}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function App() {
+  const { title, date, emoji, rendering } = useAppParams();
+
+  if (rendering) {
+    document.body.style.background = "transparent";
+    return (
+      <div className="rendering_container">
+        <Content title={title} date={date} emoji={emoji} />
+      </div>
+    );
+  }
+
+  return (
+    <VideoFrame>
+      <Content title={title} date={date} emoji={emoji} />
+    </VideoFrame>
   );
 }
 

@@ -22,7 +22,10 @@
   font-size: 0.8rem;
   font-family: sans-serif;
   backdrop-filter: blur(6px);
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
   text-align: left;
   min-width: 7rem;
 }
@@ -30,13 +33,12 @@
 .button:hover {
   background: rgba(60, 60, 60, 0.9);
   color: #fff;
-  border-color: rgba(255, 255, 255, 0.25);
 }
 
 .active {
   background: rgba(255, 255, 255, 0.9);
   color: #111;
-  border-color: transparent;
+  border: 1px solid rgba(60, 60, 60, 0.9);
 }
 
 .active:hover {
