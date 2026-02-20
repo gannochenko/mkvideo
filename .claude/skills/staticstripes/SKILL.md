@@ -621,9 +621,524 @@ Generated assets:
 
 **Limitations:**
 
-- No JavaScript execution (pure HTML/CSS only), YET
+- No JavaScript execution (pure HTML/CSS only)
 - Rendered at output resolution
 - Each container generates a separate PNG file
+
+---
+
+### Application System Technical Details
+
+**Purpose:** Render full-featured web applications (React, Vue, vanilla JS, etc.) as PNG overlays using Puppeteer.
+
+Unlike `<container>` elements which only support static HTML/CSS, `<app>` elements allow you to:
+- Execute JavaScript
+- Use React/Vue/Svelte components
+- Render dynamic content based on video metadata
+- Create complex interactive previews during development
+- Access video metadata (title, date, tags) automatically
+
+#### App Structure
+
+An app is a standalone web application with this required structure:
+
+```
+my-app/
+├── src/                  # Source files (React, Vue, etc.)
+│   ├── main.tsx         # Entry point
+│   └── App.tsx          # Main component
+├── dst/                  # Build output (REQUIRED for rendering)
+│   ├── index.html       # Built HTML file
+│   └── assets/          # Bundled JS/CSS
+├── package.json         # Dependencies
+├── vite.config.ts       # Build configuration
+└── Makefile (optional)  # Build commands
+```
+
+**Critical requirement:** The app MUST be built to the `dst/` directory before rendering.
+
+#### Using Apps in Fragments
+
+```html
+<fragment class="title_overlay" style="-offset-start: 0s; -duration: 5000ms;">
+  <app
+    src="../apps/central_text/dst"
+    data-parameters='{"extra": "❄️🏔️🌨️"}'
+  />
+</fragment>
+```
+
+**`<app>` Attributes:**
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `src` | `string` | Yes | Path to app's **dst/** directory (relative to project.html or absolute) |
+| `data-parameters` | `JSON string` | No | Custom JSON parameters passed to app via URL query string |
+
+#### How Apps Work
+
+**1. Build Phase:**
+```bash
+cd apps/central_text
+npm install
+npm run build  # Builds to dst/ directory
+```
+
+**2. Rendering Phase:**
+
+When StaticStripes encounters an `<app>` element:
+
+1. **Launches Puppeteer** (headless Chrome)
+2. **Constructs URL** with automatic metadata injection:
+   ```
+   file:///path/to/app/dst/index.html?rendering&title=Video+Title&date=2025-01-15T12:00:00Z&tags=travel,vlog&extra=❄️🏔️🌨️
+   ```
+3. **Loads the app** in a virtual viewport (output resolution)
+4. **Waits for render signal** - App must set `window.__stsRenderComplete = true`
+5. **Captures screenshot** with transparent background
+6. **Caches result** in `cache/apps/<hash>.png`
+7. **Overlays PNG** on video using FFmpeg
+
+**Automatic Parameters Injected:**
+
+All apps automatically receive these URL parameters:
+
+- `rendering` - Flag indicating render mode (no value, just presence)
+- `title` - Video title from `<title>` tag
+- `date` - Video date from `<date>` tag (ISO 8601 format)
+- `tags` - Comma-separated tags from `<tag>` elements
+
+Custom parameters from `data-parameters` are merged and can override defaults.
+
+#### Creating a React App
+
+**Example: Title Card App**
+
+**File: `apps/title-card/src/App.tsx`**
+
+```tsx
+import { useEffect } from 'react';
+import './App.css';
+
+interface AppParams {
+  title?: string;
+  date?: string;
+  tags?: string;
+  extra?: string;
+  rendering: boolean;
+}
+
+function useAppParams(): AppParams {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    title: params.get('title') ?? undefined,
+    date: params.get('date') ?? undefined,
+    tags: params.get('tags') ?? undefined,
+    extra: params.get('extra') ?? undefined,
+    rendering: params.has('rendering'),
+  };
+}
+
+function RenderingView({ title, date, extra }: {
+  title?: string;
+  date?: string;
+  extra?: string;
+}) {
+  useEffect(() => {
+    // CRITICAL: Set transparent background
+    document.body.style.background = 'transparent';
+
+    // CRITICAL: Signal render complete
+    (window as any).__stsRenderComplete = true;
+  }, []);
+
+  return (
+    <div className="container">
+      <div className="title">
+        {title?.split(' ').map((word, i) => (
+          <span key={i} className="word">{word}</span>
+        ))}
+      </div>
+      {date && (
+        <div className="date">
+          {new Date(date).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          })}
+        </div>
+      )}
+      {extra && (
+        <div className="extra">{extra}</div>
+      )}
+    </div>
+  );
+}
+
+function App() {
+  const { title, date, extra, rendering } = useAppParams();
+
+  if (rendering) {
+    return <RenderingView title={title} date={date} extra={extra} />;
+  }
+
+  // Development preview mode
+  return (
+    <div className="dev-container">
+      <h1>Title Card Preview</h1>
+      <RenderingView title={title} date={date} extra={extra} />
+    </div>
+  );
+}
+
+export default App;
+```
+
+**File: `apps/title-card/src/App.css`**
+
+```css
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  font-family: 'Arial', sans-serif;
+}
+
+.title {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+  font-size: 6rem;
+  font-weight: bold;
+}
+
+.word {
+  background: white;
+  color: black;
+  padding: 0.5rem 1.5rem;
+  border-radius: 3rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.date {
+  margin-top: 2rem;
+  font-size: 3rem;
+  color: white;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+}
+
+.extra {
+  margin-top: 1rem;
+  font-size: 4rem;
+}
+```
+
+**File: `apps/title-card/package.json`**
+
+```json
+{
+  "name": "title-card",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "~5.7.2",
+    "vite": "^6.2.0"
+  }
+}
+```
+
+**File: `apps/title-card/vite.config.ts`**
+
+```ts
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+  build: {
+    outDir: 'dst',  // CRITICAL: Must output to dst/
+  },
+});
+```
+
+**File: `apps/title-card/Makefile`**
+
+```makefile
+run:
+	npm run dev
+
+build:
+	npm run build
+```
+
+#### Using the App in project.html
+
+```html
+<project>
+  <sequence>
+    <!-- Video sequence -->
+    <fragment class="intro_clip" />
+  </sequence>
+
+  <sequence>
+    <!-- Title overlay sequence -->
+    <fragment class="title_overlay">
+      <app
+        src="../apps/title-card/dst"
+        data-parameters='{"extra": "🗼 🍜 🌸"}'
+      />
+    </fragment>
+  </sequence>
+</project>
+
+<style>
+  .intro_clip {
+    -asset: intro_video;
+    -duration: 8000ms;
+  }
+
+  .title_overlay {
+    -offset-start: 0s;
+    -duration: 8000ms;
+    -transition-start: fade-in 1000ms;
+    -transition-end: fade-out 1000ms;
+  }
+</style>
+```
+
+#### App Development Workflow
+
+**1. Create app:**
+```bash
+cd apps
+npm create vite@latest title-card -- --template react-ts
+cd title-card
+npm install
+```
+
+**2. Update vite.config.ts to output to `dst/`:**
+```ts
+export default defineConfig({
+  plugins: [react()],
+  build: {
+    outDir: 'dst',
+  },
+});
+```
+
+**3. Implement rendering logic:**
+- Add `useAppParams` hook to read URL parameters
+- Create `RenderingView` component that sets `window.__stsRenderComplete = true`
+- Set transparent background: `document.body.style.background = 'transparent'`
+
+**4. Develop with live preview:**
+```bash
+npm run dev
+# Open http://localhost:5173?rendering&title=My+Video&date=2025-01-15T12:00:00Z
+```
+
+**5. Build for production:**
+```bash
+npm run build  # Outputs to dst/
+```
+
+**6. Use in project.html:**
+```html
+<app src="../apps/title-card/dst" data-parameters='{"extra": "🎬"}' />
+```
+
+**7. Generate video:**
+```bash
+staticstripes generate -p . -o youtube -d
+```
+
+#### Critical App Requirements
+
+✅ **MUST set render complete flag:**
+```ts
+(window as any).__stsRenderComplete = true;
+```
+
+✅ **MUST set transparent background:**
+```ts
+document.body.style.background = 'transparent';
+```
+
+✅ **MUST build to `dst/` directory**
+
+✅ **MUST complete rendering within 5 seconds** (configurable via `RENDER_TIMEOUT_MS`)
+
+❌ **DO NOT** use `navigator.geolocation`, `navigator.mediaDevices`, or other browser APIs requiring permissions
+
+❌ **DO NOT** make external network requests during rendering (pre-fetch data during build)
+
+#### App vs Container Comparison
+
+| Feature | `<container>` | `<app>` |
+|---------|---------------|---------|
+| **JavaScript** | ❌ No | ✅ Yes |
+| **React/Vue** | ❌ No | ✅ Yes |
+| **Setup** | None | Build step required |
+| **Rendering** | Static HTML/CSS | Puppeteer (headless browser) |
+| **Metadata access** | ❌ No | ✅ Auto-injected |
+| **Performance** | Fast | Slower (browser launch) |
+| **Caching** | Per-container hash | Per-app + parameters hash |
+| **Use case** | Simple text/graphics | Complex dynamic overlays |
+
+#### Advanced App Examples
+
+**Example: Dynamic Tag Cloud**
+
+```tsx
+function TagCloud({ tags }: { tags?: string }) {
+  const tagList = tags?.split(',') || [];
+
+  return (
+    <div className="tag-cloud">
+      {tagList.map((tag, i) => (
+        <span
+          key={i}
+          className="tag"
+          style={{
+            fontSize: `${2 + Math.random() * 2}rem`,
+            opacity: 0.7 + Math.random() * 0.3,
+          }}
+        >
+          #{tag.trim()}
+        </span>
+      ))}
+    </div>
+  );
+}
+```
+
+**Example: Conditional Rendering**
+
+```tsx
+function AppContent({ outro, title }: { outro?: boolean; title?: string }) {
+  if (outro) {
+    return (
+      <div className="outro">
+        <h1>Thanks for watching!</h1>
+        <p>Subscribe for more!</p>
+        <span className="emoji">🫶</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="intro">
+      <h1>{title}</h1>
+    </div>
+  );
+}
+
+// Usage in project.html:
+// <app src="../apps/card/dst" data-parameters='{"outro": true}' />
+```
+
+**Example: Date Formatting**
+
+```tsx
+function formatDate(isoString: string): string {
+  const date = new Date(isoString);
+  return date.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
+  });
+}
+
+function DateDisplay({ date }: { date?: string }) {
+  if (!date) return null;
+
+  return (
+    <div className="date">
+      {formatDate(date)}
+    </div>
+  );
+}
+```
+
+#### Troubleshooting Apps
+
+**App not rendering:**
+- ✓ Check that `dst/` directory exists and contains built files
+- ✓ Verify `dst/index.html` exists
+- ✓ Check browser console output for errors (visible with `--debug`)
+- ✓ Ensure `window.__stsRenderComplete = true` is set
+- ✓ Verify transparent background is set
+
+**Timeout errors:**
+- ✓ Reduce rendering complexity
+- ✓ Remove network requests
+- ✓ Check that render complete flag is set in `useEffect`
+
+**Wrong parameters:**
+- ✓ Validate JSON syntax in `data-parameters`
+- ✓ Check URL parameters in browser dev mode
+- ✓ Verify `useAppParams` hook implementation
+
+**Caching issues:**
+- ✓ Delete `cache/apps/` directory to force re-render
+- ✓ Check that parameters affecting output are included in cache key
+- ✓ Rebuild app after code changes
+
+#### Best Practices
+
+1. **Separate rendering and preview modes:**
+   ```tsx
+   if (rendering) return <RenderingView />;
+   return <DevPreview />;
+   ```
+
+2. **Always set render complete in useEffect:**
+   ```tsx
+   useEffect(() => {
+     document.body.style.background = 'transparent';
+     (window as any).__stsRenderComplete = true;
+   }, []);
+   ```
+
+3. **Use transparent backgrounds:**
+   ```css
+   body { background: transparent; }
+   ```
+
+4. **Test in development server first:**
+   ```bash
+   npm run dev
+   # Then visit: http://localhost:5173?rendering&title=Test
+   ```
+
+5. **Keep rendering fast:**
+   - Avoid heavy computations
+   - Pre-process data during build
+   - Use simple CSS animations (if any)
+
+6. **Build before generating video:**
+   ```bash
+   cd apps/my-app
+   npm run build
+   cd ../..
+   staticstripes generate -p . -o youtube
+   ```
 
 ### Fragment Attributes Reference
 
@@ -1212,3 +1727,645 @@ When helping users with StaticStripes:
 6. Start with dev mode (`-d`) for faster iteration
 7. For AI features, verify credentials are set up correctly
 8. For uploads, ensure authentication is completed first
+
+---
+
+## Complete Project Example
+
+Below is a comprehensive example of a `project.html` file demonstrating all major features of StaticStripes:
+
+```html
+<!-- ================================================== -->
+<!-- METADATA (Optional)                                -->
+<!-- ================================================== -->
+
+<title>Travel Vlog: Tokyo Adventure</title>
+<date>2025-01-15T12:00:00Z</date>
+
+<!-- Tags for video metadata (used in uploads) -->
+<tag name="travel" />
+<tag name="vlog" />
+<tag name="tokyo" />
+<tag name="japan" />
+<tag name="adventure" />
+
+<!-- ================================================== -->
+<!-- PROJECT STRUCTURE (Timeline Sequences)             -->
+<!-- ================================================== -->
+
+<project>
+  <!-- Main video sequence (video track) -->
+  <sequence id="main">
+    <!-- Opening still image with title overlay -->
+    <fragment
+      id="intro_screen"
+      class="intro_image"
+      data-timecode="Introduction"
+    />
+
+    <!-- First video clip with ambient background -->
+    <fragment id="clip1" class="main_clip ambient" data-timecode="Shibuya Crossing" />
+
+    <!-- Transition effect (glitch/static) -->
+    <fragment class="glitch_effect" />
+
+    <!-- Second video clip -->
+    <fragment id="clip2" class="main_clip pillarbox" data-timecode="Tokyo Tower" />
+
+    <!-- Third video clip with chromakey -->
+    <fragment id="clip3" class="main_clip greenscreen" data-timecode="Studio Shot" />
+
+    <!-- Fourth video clip -->
+    <fragment id="clip4" class="main_clip ambient" data-timecode="Night Scene" />
+
+    <!-- Closing still image -->
+    <fragment id="outro_screen" class="outro_image" data-timecode="Thanks for Watching" />
+  </sequence>
+
+  <!-- Background music sequence (audio track) -->
+  <sequence>
+    <!-- Intro music (8 seconds) -->
+    <fragment class="intro_music" />
+  </sequence>
+
+  <!-- Main background music (parallel audio) -->
+  <sequence>
+    <!-- Main soundtrack throughout video -->
+    <fragment class="bg_music" />
+  </sequence>
+
+  <!-- Title overlay sequence (using React app for dynamic rendering) -->
+  <sequence>
+    <!-- Title card using custom React app -->
+    <fragment class="intro_overlay">
+      <app
+        src="../apps/title-card/dst"
+        data-parameters='{"extra": "🗼 🍜 🌸"}'
+      />
+    </fragment>
+  </sequence>
+
+  <!-- Outro overlay sequence (using same app with different parameters) -->
+  <sequence>
+    <!-- Outro text synchronized with outro_screen -->
+    <fragment class="outro_overlay">
+      <app
+        src="../apps/title-card/dst"
+        data-parameters='{"outro": true}'
+      />
+    </fragment>
+  </sequence>
+</project>
+
+<!-- ================================================== -->
+<!-- STYLES (CSS with Custom Properties)                -->
+<!-- ================================================== -->
+
+<style>
+  /* Import Google Fonts for container text */
+  @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap");
+
+  /* ============== UTILITY CLASSES ============== */
+
+  .disabled {
+    display: none; /* Hide fragments completely */
+  }
+
+  /* ============== OBJECT FIT MODES ============== */
+
+  .ambient {
+    /* Contain video with blurred ambient background */
+    /* Syntax: contain ambient <blur> <brightness> <saturation> */
+    -object-fit: contain ambient 25 -0.1 0.7;
+  }
+
+  .pillarbox {
+    /* Contain video with black bars */
+    -object-fit: contain pillarbox #000000;
+  }
+
+  .cover {
+    /* Fill frame, crop if necessary (default) */
+    -object-fit: cover;
+  }
+
+  /* ============== TIMING DURATIONS ============== */
+
+  .intro_duration {
+    -duration: 8000ms; /* 8 seconds */
+  }
+
+  .outro_duration {
+    -duration: 6000ms; /* 6 seconds */
+  }
+
+  /* ============== INTRO SECTION ============== */
+
+  .intro_image {
+    -asset: tokyo_tower_image;
+    -duration: 8000ms;
+    -transition-start: fade-in 500ms;
+    -transition-end: fade-out 1000ms;
+    filter: instagram-lark; /* Instagram-style color filter */
+  }
+
+  .intro_music {
+    -asset: intro_jingle;
+    -duration: 8000ms;
+    -transition-end: fade-out 1000ms;
+  }
+
+  .intro_overlay {
+    -duration: 8000ms;
+    -transition-start: fade-in 1000ms;
+    -transition-end: fade-out 1000ms;
+  }
+
+  /* ============== MAIN VIDEO CLIPS ============== */
+
+  .main_clip {
+    -transition-start: fade-in 500ms;
+    -transition-end: fade-out 500ms;
+    -duration: auto; /* Use full asset duration */
+  }
+
+  /* Specific clip adjustments */
+  #clip1 {
+    -asset: shibuya_crossing;
+    -trim-start: 2000ms; /* Skip first 2 seconds */
+    -duration: 10000ms; /* Use 10 seconds */
+  }
+
+  #clip2 {
+    -asset: tokyo_tower_video;
+    -duration: 8000ms;
+  }
+
+  #clip3 {
+    -asset: studio_shot;
+    -duration: 6000ms;
+  }
+
+  #clip4 {
+    -asset: night_tokyo;
+    -trim-start: 5000ms; /* Skip first 5 seconds */
+    -duration: 12000ms;
+  }
+
+  /* ============== EFFECTS ============== */
+
+  .glitch_effect {
+    -asset: digital_glitch;
+    -duration: 300ms; /* Short glitch transition */
+    -offset-start: -150ms; /* Overlap with previous clip */
+    -offset-end: -150ms; /* Overlap with next clip */
+    -overlay-start-z-index: 10; /* Put glitch on top */
+    -overlay-end-z-index: 10;
+    -chromakey: smooth good #000000; /* Remove black background */
+  }
+
+  .greenscreen {
+    /* Remove green screen background */
+    /* Syntax: -chromakey: <blend> <similarity> <color> */
+    /* Blend: hard|smooth|soft (or numeric 0.0-0.2) */
+    /* Similarity: strict|good|forgiving|loose (or numeric 0.1-0.7) */
+    -chromakey: smooth good #00ff00;
+  }
+
+  /* ============== BACKGROUND MUSIC ============== */
+
+  .bg_music {
+    -asset: main_soundtrack;
+    -offset-start: 8000ms; /* Start after intro */
+    -transition-start: fade-in 2000ms;
+    -transition-end: fade-out 3000ms;
+  }
+
+  /* ============== OUTRO SECTION ============== */
+
+  .outro_image {
+    -asset: tokyo_tower_image;
+    -duration: 6000ms;
+    -transition-start: fade-in 1000ms;
+    -transition-end: fade-out 1000ms;
+    filter: instagram-valencia;
+  }
+
+  .outro_overlay {
+    /* Sync outro overlay with outro screen using calc() */
+    -offset-start: calc(url(#outro_screen.time.start));
+    -duration: 6000ms;
+    -transition-start: fade-in 1000ms;
+    -transition-end: fade-out 1000ms;
+  }
+
+  /* ============== CONTAINER STYLES (HTML Overlays) ============== */
+
+  .main_container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100vw;
+    height: 100vh;
+    font-family: "Poppins", sans-serif;
+    font-size: 6rem;
+    background: transparent;
+  }
+
+  .text_alignment {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-top: 15rem;
+  }
+
+  .text_outline {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    color: black;
+    font-weight: 700;
+  }
+
+  .text_outline span {
+    background-color: white;
+    padding: 0.5rem 1.5rem;
+    margin: 0 -0.5rem;
+    border-radius: 3rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .text_outline__small {
+    font-size: 3rem;
+    padding-top: 2rem;
+    font-weight: 400;
+  }
+</style>
+
+<!-- ================================================== -->
+<!-- ASSETS (Media Files)                               -->
+<!-- ================================================== -->
+
+<assets>
+  <!-- Video clips -->
+  <asset
+    data-name="shibuya_crossing"
+    data-path="./input/shibuya_crossing.mp4"
+    data-author="TravelFilmer"
+  />
+  <asset
+    data-name="tokyo_tower_video"
+    data-path="./input/tokyo_tower.mp4"
+    data-author="TravelFilmer"
+  />
+  <asset
+    data-name="studio_shot"
+    data-path="./input/studio_greenscreen.mp4"
+    data-author="TravelFilmer"
+  />
+  <asset
+    data-name="night_tokyo"
+    data-path="./input/night_cityscape.mp4"
+    data-author="TravelFilmer"
+  />
+
+  <!-- Images -->
+  <asset
+    data-name="tokyo_tower_image"
+    data-path="./images/tokyo_tower.jpg"
+    data-author="PhotoPro"
+  />
+
+  <!-- Effects -->
+  <asset
+    data-name="digital_glitch"
+    data-path="./effects/glitch_01.mp4"
+  />
+
+  <!-- Audio tracks -->
+  <asset
+    data-name="intro_jingle"
+    data-path="./audio/intro.mp3"
+    data-author="MusicComposer"
+  />
+
+  <!-- AI-Generated Music -->
+  <asset
+    data-name="main_soundtrack"
+    data-path="./audio/main_background.mp3"
+  >
+    <ai data-integration-name="music_ai">
+      <prompt>
+        Upbeat travel vlog background music, electronic with acoustic guitar,
+        positive and energetic mood, tempo 120-130 BPM, instrumental only,
+        smooth transitions, suitable for YouTube content, duration 60 seconds
+      </prompt>
+      <duration value="60" />
+    </ai>
+  </asset>
+</assets>
+
+<!-- ================================================== -->
+<!-- OUTPUTS (Video Export Configurations)              -->
+<!-- ================================================== -->
+
+<outputs>
+  <!-- YouTube landscape (1920×1080, 16:9) -->
+  <output
+    name="youtube"
+    path="./output/youtube.mp4"
+    resolution="1920x1080"
+    fps="30"
+  />
+
+  <!-- YouTube Shorts (1080×1920, 9:16) -->
+  <output
+    name="youtube_shorts"
+    path="./output/youtube_shorts.mp4"
+    resolution="1080x1920"
+    fps="30"
+  />
+
+  <!-- Instagram Reels (1080×1920, 9:16) -->
+  <output
+    name="instagram"
+    path="./output/instagram.mp4"
+    resolution="1080x1920"
+    fps="30"
+  />
+
+  <!-- Square format for social media (1080×1080, 1:1) -->
+  <output
+    name="square"
+    path="./output/square.mp4"
+    resolution="1080x1080"
+    fps="30"
+  />
+</outputs>
+
+<!-- ================================================== -->
+<!-- AI PROVIDERS (AI Generation Services)              -->
+<!-- ================================================== -->
+
+<ai>
+  <!-- AIMusicAPI.ai integration for music generation -->
+  <ai-music-api-ai name="music_ai">
+    <model name="sonic-v4-5" />
+  </ai-music-api-ai>
+</ai>
+
+<!-- ================================================== -->
+<!-- UPLOADS (Platform Upload Configurations)           -->
+<!-- ================================================== -->
+
+<uploads>
+  <!-- YouTube upload configuration -->
+  <youtube name="yt_main" data-output-name="youtube">
+    <!-- Privacy settings: <private />, <unlisted />, or <public /> -->
+    <public />
+
+    <!-- Mark as made for kids (required by YouTube API) -->
+    <!-- Remove this tag if content is NOT for kids -->
+    <!-- <made-for-kids /> -->
+
+    <!-- Video category -->
+    <category name="travel" />
+
+    <!-- Video language -->
+    <language name="en" />
+
+    <!-- Override global title (optional) -->
+    <title>Amazing Tokyo Travel Vlog | Japan Adventure 2025</title>
+
+    <!-- Thumbnail: extract frame at specified time -->
+    <thumbnail data-timecode="5000ms" />
+
+    <!-- Video tags -->
+    <tag name="travel" />
+    <tag name="vlog" />
+    <tag name="tokyo" />
+    <tag name="japan" />
+    <tag name="adventure" />
+    <tag name="travel2025" />
+
+    <!-- Video description (supports EJS templating) -->
+    <pre>
+Join me on an incredible journey through Tokyo! 🗼🍜
+
+In this video, we explore:
+${timecodes}
+
+📍 Locations featured:
+- Shibuya Crossing
+- Tokyo Tower
+- Night cityscape views
+
+🎵 Music: AI-generated custom soundtrack
+
+👍 If you enjoyed this video, please like and subscribe!
+
+📱 Follow me:
+- Instagram: @travelfilmer
+- TikTok: @travelfilmer
+- Website: https://travelfilmer.com
+
+${tags}
+
+#TokyoTravel #JapanVlog #TravelVideo #TokyoAdventure
+    </pre>
+  </youtube>
+
+  <!-- YouTube Shorts upload -->
+  <youtube name="yt_shorts" data-output-name="youtube_shorts">
+    <public />
+    <category name="travel" />
+    <language name="en" />
+    <title>Tokyo Adventure Highlights 🗼 #Shorts</title>
+    <thumbnail data-timecode="3000ms" />
+    <tag name="shorts" />
+    <tag name="tokyo" />
+    <tag name="travel" />
+    <pre>
+Quick highlights from Tokyo! 🇯🇵✨
+
+#TokyoTravel #JapanTravel #TravelShorts
+    </pre>
+  </youtube>
+
+  <!-- S3 (DigitalOcean Spaces) backup -->
+  <s3 name="s3_backup" data-output-name="youtube">
+    <!-- S3-compatible endpoint -->
+    <endpoint name="digitaloceanspaces.com" />
+
+    <!-- Region -->
+    <region name="ams3" />
+
+    <!-- Bucket name -->
+    <bucket name="my-video-archive" />
+
+    <!-- File paths (supports variables: ${slug}, ${output}, ${title}) -->
+    <path name="file">videos/${slug}/${output}.mp4</path>
+    <path name="metadata">videos/${slug}/metadata.json</path>
+    <path name="thumbnail">videos/${slug}/thumbnail.jpeg</path>
+
+    <!-- Access control -->
+    <acl name="public-read" />
+
+    <!-- Thumbnail extraction -->
+    <thumbnail data-timecode="5000ms" />
+  </s3>
+
+  <!-- Instagram Reels upload -->
+  <instagram name="ig_main" data-output-name="instagram">
+    <!-- Thumbnail extraction -->
+    <thumbnail data-timecode="3000ms" />
+
+    <!-- Caption (supports EJS templating) -->
+    <pre>
+Tokyo adventures! 🗼✨
+
+${title}
+
+${tags}
+
+#TokyoTravel #JapanTravel #TravelReels #TokyoVlog #ExploreJapan
+    </pre>
+  </instagram>
+</uploads>
+
+<!-- ================================================== -->
+<!-- FFMPEG OPTIONS (Custom Encoding Presets)           -->
+<!-- ================================================== -->
+
+<ffmpeg>
+  <!-- Fast preview preset (for development) -->
+  <option name="preview">
+    -c:v h264_nvenc -preset fast -c:a aac -b:a 192k
+  </option>
+
+  <!-- High quality preset (for final export) -->
+  <option name="hq">
+    -c:v libx264 -preset slow -crf 18 -c:a aac -b:a 320k
+  </option>
+
+  <!-- Ultra-fast preset (for testing) -->
+  <option name="ultrafast">
+    -pix_fmt yuv420p -preset ultrafast -c:a aac -b:a 128k
+  </option>
+</ffmpeg>
+```
+
+### Example Project Structure
+
+```
+tokyo-vlog/
+├── project.html              # Main project file (above)
+├── input/                    # Video clips
+│   ├── shibuya_crossing.mp4
+│   ├── tokyo_tower.mp4
+│   ├── studio_greenscreen.mp4
+│   └── night_cityscape.mp4
+├── audio/                    # Audio files
+│   ├── intro.mp3
+│   └── main_background.mp3   # (auto-generated by AI if missing)
+├── images/                   # Image assets
+│   └── tokyo_tower.jpg
+├── effects/                  # Effect clips
+│   └── glitch_01.mp4
+├── apps/                     # Custom React/Vue apps for overlays
+│   └── title-card/
+│       ├── src/              # App source code
+│       │   ├── App.tsx
+│       │   ├── App.css
+│       │   └── main.tsx
+│       ├── dst/              # Built app (REQUIRED for rendering)
+│       │   ├── index.html
+│       │   └── assets/
+│       ├── package.json
+│       ├── vite.config.ts
+│       └── Makefile
+├── output/                   # Generated videos
+│   ├── youtube.mp4
+│   ├── youtube_shorts.mp4
+│   ├── instagram.mp4
+│   └── square.mp4
+├── cache/                    # Temporary rendering cache
+│   ├── containers/           # Cached container PNGs
+│   └── apps/                 # Cached app screenshots
+└── .auth/                    # Authentication credentials (git-ignored)
+    ├── youtube_yt_main.json
+    ├── youtube_yt_shorts.json
+    ├── music-api.json
+    └── instagram_ig_main.json
+```
+
+### Generating This Example
+
+```bash
+# 1. Create project directory
+mkdir tokyo-vlog
+cd tokyo-vlog
+
+# 2. Create project.html (copy the example above)
+
+# 3. Add your media files to input/, audio/, images/, effects/
+
+# 4. Create and build the React app
+mkdir -p apps
+cd apps
+npm create vite@latest title-card -- --template react-ts
+cd title-card
+
+# Update vite.config.ts to output to 'dst'
+# (See App System section for complete app code)
+
+npm install
+npm run build  # CRITICAL: Build to dst/ directory
+cd ../..
+
+# 5. Set up AI credentials (if using AI generation)
+mkdir .auth
+echo '{"apiKey": "your-api-key"}' > .auth/music-api.json
+
+# 6. Preview in dev mode (fast)
+staticstripes generate -p . -o youtube -d
+
+# 7. Generate final video (high quality)
+staticstripes generate -p . -o youtube --option hq
+
+# 8. Generate all outputs
+staticstripes generate -p .
+
+# 9. Authenticate with YouTube (first time only)
+staticstripes auth --upload-name yt_main
+
+# 10. Upload to YouTube
+staticstripes upload --upload-name yt_main
+
+# 11. Upload shorts version
+staticstripes upload --upload-name yt_shorts
+```
+
+### Key Features Demonstrated
+
+This example showcases:
+
+✅ **Multiple sequences** - Video, audio, and overlay tracks
+✅ **Fragment timing** - Duration, trimming, offsets
+✅ **Transitions** - Fade in/out effects
+✅ **Object fit modes** - Cover, contain with ambient, pillarbox
+✅ **Filters** - Instagram-style color filters
+✅ **Chromakey** - Green screen removal
+✅ **Overlays** - Z-index layering for effects
+✅ **Calc() expressions** - Dynamic timing synchronization
+✅ **React apps** - Custom interactive overlays with metadata injection
+✅ **AI generation** - Auto-generate music if missing
+✅ **Multiple outputs** - YouTube, Shorts, Instagram, Square
+✅ **Platform uploads** - YouTube, S3, Instagram
+✅ **Timecodes** - Auto-generated chapter markers
+✅ **FFmpeg presets** - Custom encoding options
+✅ **EJS templating** - Dynamic descriptions
+✅ **App caching** - Intelligent caching for fast re-renders
+
+This comprehensive example demonstrates the full power and flexibility of StaticStripes for professional video production workflows.
